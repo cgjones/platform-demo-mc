@@ -10,9 +10,15 @@ include protocol PLayer;
 include protocol PRenderFrame;
 
 include "gfxipc/ShadowLayerUtils.h";
+include "mozilla/TimeStamp.h";
 
 using gfx3DMatrix;
+using gfxPoint;
+using gfxPoint3D;
+using nscoord;
+using nsRect;
 using gfxRGBA;
+using nsPoint;
 using nsIntPoint;
 using nsIntRect;
 using nsIntRegion;
@@ -21,6 +27,8 @@ using mozilla::GraphicsFilterType;
 using mozilla::layers::FrameMetrics;
 using mozilla::layers::SurfaceDescriptorX11;
 using mozilla::null_t;
+using mozilla::TimeDuration;
+using mozilla::TimeStamp;
 using mozilla::WindowsHandle;
 
 /**
@@ -76,23 +84,116 @@ union CanvasSurface {
   null_t;
 };
 
-// Change a layer's attributes
+struct BezierFunction {
+  float p0;
+  float p1;
+  float p2;
+  float p3;
+};
+
+struct StepFunction {
+  int steps;
+  int type; //this is really nsTimingFunction::Type
+};
+
+union TimingFunction {
+  BezierFunction;
+  StepFunction;
+};
+
+struct Color { gfxRGBA value; };
+struct Opacity { float value; };
+struct Rotation {
+  float x;
+  float y;
+  float z;
+  float radians;
+};
+struct Scale {
+  float x;
+  float y;
+  float z;
+};
+struct Skew {
+  float x;
+  float y;
+};
+struct TransformMatrix { gfx3DMatrix value; };
+struct Translation {
+  float x;
+  float y;
+  float z;
+};
+
+union TransformFunction {
+  Rotation;
+  Scale;
+  Skew;
+  Translation;
+  TransformMatrix;
+};
+
+union Animatable {
+  Color;
+  Opacity;
+  TransformFunction[];
+};
+
+struct AnimationSegment {
+  Animatable startState;
+  Animatable endState;
+  float startPoint;
+  float endPoint;
+  TimingFunction sampleFn;
+};
+
+struct TransformData {
+  nsPoint origin;
+  gfxPoint3D mozOrigin;
+  gfxPoint3D perspectiveOrigin;
+  nsRect bounds;
+  nscoord perspective;
+};
+
+union AnimationData {
+  null_t;
+  TransformData;
+};
+
+struct Animation {
+  TimeStamp startTime;
+  TimeDuration duration;
+  // For each frame, the interpolation point is computed based on the
+  // elapsed time between [start, end] and the sample function.  Then
+  // the property's value is interpolated at that point.  There must
+  // be keyframes for points 0.0 and 1.0.  The keyframes must be
+  // sorted by |point|.
+  AnimationSegment[] segments;
+  // How many times to repeat the animation.  < 0 means "forever".
+  float numIterations;
+  // This uses the NS_STYLE_ANIMATION_DIRECTION_* constants.
+  int32_t direction;
+  AnimationData data;
+};
+
 struct CommonLayerAttributes {
   nsIntRegion visibleRegion;
-  gfx3DMatrix transform;
+  TransformMatrix transform;
   PRUint32 contentFlags;
-  float opacity;
+  Opacity opacity;
   bool useClipRect;
   nsIntRect clipRect;
   bool isFixedPosition;
   nullable PLayer maskLayer;
+  // Animated colors are only honored for ColorLayers.
+  Animation[] animations;
 };
 
 struct ThebesLayerAttributes {
   nsIntRegion validRegion;
 };
 struct ContainerLayerAttributes{ FrameMetrics metrics; };
-struct ColorLayerAttributes    { gfxRGBA color; };
+struct ColorLayerAttributes    { Color color; };
 struct CanvasLayerAttributes   { GraphicsFilterType filter; };
 struct ImageLayerAttributes    {
   GraphicsFilterType filter;

@@ -956,8 +956,8 @@ AddTransformScale(const nsCSSValue &aValue1, double aCoeff1,
   aResult.SetFloatValue(result + 1.0f, eCSSUnit_Number);
 }
 
-static already_AddRefed<nsCSSValue::Array>
-AppendTransformFunction(nsCSSKeyword aTransformFunction,
+already_AddRefed<nsCSSValue::Array>
+nsStyleAnimation::AppendTransformFunction(nsCSSKeyword aTransformFunction,
                         nsCSSValueList**& aListTail)
 {
   PRUint32 nargs;
@@ -1334,7 +1334,7 @@ AddDifferentTransformLists(const nsCSSValueList* aList1, double aCoeff1,
   nsCSSValueList **resultTail = getter_Transfers(result);
 
   nsRefPtr<nsCSSValue::Array> arr;
-  arr = AppendTransformFunction(eCSSKeyword_interpolatematrix, resultTail);
+  arr = nsStyleAnimation::AppendTransformFunction(eCSSKeyword_interpolatematrix, resultTail);
   
   // FIXME: We should change the other transform code to also only
   // take a single progress value, as having values that don't
@@ -1388,7 +1388,7 @@ AddTransformLists(const nsCSSValueList* aList1, double aCoeff1,
         tfunc != eCSSKeyword_interpolatematrix &&
         tfunc != eCSSKeyword_rotate3d &&
         tfunc != eCSSKeyword_perspective) {
-      arr = AppendTransformFunction(tfunc, resultTail);
+      arr = nsStyleAnimation::AppendTransformFunction(tfunc, resultTail);
     }
 
     switch (tfunc) {

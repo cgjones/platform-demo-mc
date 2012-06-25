@@ -16,6 +16,7 @@
 #include "nsPrintfCString.h"
 #include "mozilla/Util.h"
 #include "LayerSorter.h"
+#include "AnimationCommon.h"
 
 using namespace mozilla::layers;
 using namespace mozilla::gfx;
@@ -206,6 +207,81 @@ LayerManager::CreateImageContainer()
 //--------------------------------------------------
 // Layer
 
+Layer::Layer(LayerManager* aManager, void* aImplData) :
+  mManager(aManager),
+  mParent(nsnull),
+  mNextSibling(nsnull),
+  mPrevSibling(nsnull),
+  mImplData(aImplData),
+  mMaskLayer(nsnull),
+  mOpacity(1.0),
+  mContentFlags(0),
+  mUseClipRect(false),
+  mUseTileSourceRect(false),
+  mIsFixedPosition(false),
+  mDebugColorIndex(0)
+{}
+
+Layer::~Layer()
+{}
+
+bool
+Layer::AddAnimation(const Animation& aAnimation)
+{
+  if (!AsShadowableLayer() || !AsShadowableLayer()->HasShadow())
+    return false;
+
+  MOZ_ASSERT(aAnimation.segments().Length() >= 1);
+
+  mAnimations.AppendElement(aAnimation);
+  Mutated();
+  return true;
+}
+
+void
+Layer::ClearAnimations()
+{
+  mAnimations.Clear();
+  mFunctions.Clear();
+  Mutated();
+}
+
+void
+Layer::SetAnimations(const AnimationArray& aAnimations)
+{
+  mAnimations = aAnimations;
+  mFunctions.Clear();
+  for (PRUint32 i = 0; i < mAnimations.Length(); i++) {
+    InfallibleTArray<css::ComputedTimingFunction*>* functions =
+      new InfallibleTArray<css::ComputedTimingFunction*>();
+    nsTArray<AnimationSegment> segments = mAnimations.ElementAt(i).segments();
+    for (PRUint32 j = 0; j < segments.Length(); j++) {
+      TimingFunction tf = segments.ElementAt(i).sampleFn();
+      css::ComputedTimingFunction* ctf = new css::ComputedTimingFunction();
+      switch (tf.type()) {
+        case TimingFunction::TBezierFunction: {
+          BezierFunction bf = tf.get_BezierFunction();
+          ctf->Init(nsTimingFunction(bf.p0(), bf.p1(), bf.p2(), bf.p3()));
+          break;
+        }
+        default: {
+          NS_ASSERTION(tf.type() == TimingFunction::TStepFunction,
+                       "Function must be bezier or step");
+          StepFunction sf = tf.get_StepFunction();
+          nsTimingFunction::Type type = sf.type() == 1 ? nsTimingFunction::StepStart
+                                                       : nsTimingFunction::StepEnd;
+          ctf->Init(nsTimingFunction(type, sf.steps()));
+          break;
+        }
+      }
+      functions->AppendElement(ctf);
+    }
+    mFunctions.AppendElement(functions);
+  }
+
+  Mutated();
+}
+
 bool
 Layer::CanUseOpaqueSurface()
 {
@@ -355,13 +431,21 @@ Layer::GetLocalTransform()
   return mTransform;
 }
 
+const float
+Layer::GetLocalOpacity()
+{
+  if (ShadowLayer* shadow = AsShadowLayer())
+    return shadow->GetShadowOpacity();
+  return mOpacity;
+}
+
 float
 Layer::GetEffectiveOpacity()
 {
-  float opacity = GetOpacity();
+  float opacity = GetLocalOpacity();
   for (ContainerLayer* c = GetParent(); c && !c->UseIntermediateSurface();
        c = c->GetParent()) {
-    opacity *= c->GetOpacity();
+    opacity *= c->GetLocalOpacity();
   }
   return opacity;
 }

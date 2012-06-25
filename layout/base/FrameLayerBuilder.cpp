@@ -3,6 +3,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+#include "mozilla/layers/PLayers.h"
+
 #include "FrameLayerBuilder.h"
 
 #include "nsDisplayList.h"
@@ -19,6 +21,9 @@
 
 #include "mozilla/Preferences.h"
 #include "sampler.h"
+
+#include "nsAnimationManager.h"
+#include "nsTransitionManager.h"
 
 #ifdef DEBUG
 #include <stdio.h>
@@ -1575,6 +1580,289 @@ PaintInactiveLayer(nsDisplayListBuilder* aBuilder,
 #endif
 }
 
+static void AddTransformFunctions(nsCSSValueList* aList,
+                                  InfallibleTArray<TransformFunction>& aFunctions)
+{
+  for (const nsCSSValueList* curr = aList; curr; curr = curr->mNext) {
+    const nsCSSValue& currElem = curr->mValue;
+    NS_ASSERTION(currElem.GetUnit() == eCSSUnit_Function,
+                 "Stream should consist solely of functions!");
+    nsCSSValue::Array* array = currElem.GetArrayValue();
+    switch (nsStyleTransformMatrix::TransformFunctionOf(array)) {
+      case eCSSKeyword_rotatex:
+      {
+        double theta = array->Item(1).GetAngleValueInRadians();
+        aFunctions.AppendElement(Rotation(1, 0, 0, theta));
+        break;
+      }
+      case eCSSKeyword_rotatey:
+      {
+        double theta = array->Item(1).GetAngleValueInRadians();
+        aFunctions.AppendElement(Rotation(0, 1, 0, theta));
+        break;
+      }
+      case eCSSKeyword_rotate:
+      case eCSSKeyword_rotatez:
+      {
+        double theta = array->Item(1).GetAngleValueInRadians();
+        aFunctions.AppendElement(Rotation(0, 0, 1, theta));
+        break;
+      }
+      case eCSSKeyword_rotate3d:
+      {
+        double x = array->Item(1).GetFloatValue();
+        double y = array->Item(2).GetFloatValue();
+        double z = array->Item(3).GetFloatValue();
+        double theta = array->Item(4).GetAngleValueInRadians();
+        aFunctions.AppendElement(Rotation(x, y, z, theta));
+        break;
+      }
+      case eCSSKeyword_scalex:
+      {
+        double x = array->Item(1).GetFloatValue();
+        aFunctions.AppendElement(Scale(x, 1, 1));
+        break;
+      }
+      case eCSSKeyword_scaley:
+      {
+        double y = array->Item(1).GetFloatValue();
+        aFunctions.AppendElement(Scale(1, y, 1));
+        break;
+      }
+      case eCSSKeyword_scalez:
+      {
+        double z = array->Item(1).GetFloatValue();
+        aFunctions.AppendElement(Scale(1, 1, z));
+        break;
+      }
+      case eCSSKeyword_scale:
+      {
+        double x = array->Item(1).GetFloatValue();
+        // scale(x) is shorthand for scale(x, x);
+        double y = array->Count() == 2 ? x : array->Item(2).GetFloatValue();
+        aFunctions.AppendElement(Scale(x, y, 1));
+        break;
+      }
+      case eCSSKeyword_scale3d:
+      {
+        double x = array->Item(1).GetFloatValue();
+        double y = array->Item(2).GetFloatValue();
+        double z = array->Item(3).GetFloatValue();
+        aFunctions.AppendElement(Scale(x, y, z));
+        break;
+      }
+      case eCSSKeyword_translatex:
+      {
+        double x = array->Item(1).GetFloatValue();
+        aFunctions.AppendElement(Translation(x, 0, 0));
+        break;
+      }
+      case eCSSKeyword_translatey:
+      {
+        double y = array->Item(1).GetFloatValue();
+        aFunctions.AppendElement(Translation(0, y, 0));
+        break;
+      }
+      case eCSSKeyword_translatez:
+      {
+        double z = array->Item(1).GetFloatValue();
+        aFunctions.AppendElement(Translation(0, 0, z));
+        break;
+      }
+      case eCSSKeyword_translate:
+      {
+        double x = array->Item(1).GetFloatValue();
+        // translate(x) is shorthand for translate(x, 0)
+        double y = array->Count() == 2 ? 0 : array->Item(2).GetFloatValue();
+        aFunctions.AppendElement(Translation(x, y, 0));
+        break;
+      }
+      case eCSSKeyword_translate3d:
+      {
+        double x = array->Item(1).GetFloatValue();
+        double y = array->Item(2).GetFloatValue();
+        double z = array->Item(3).GetFloatValue();
+        aFunctions.AppendElement(Translation(x, y, z));
+        break;
+      }
+      case eCSSKeyword_skewx:
+      {
+        double x = array->Item(1).GetFloatValue();
+        aFunctions.AppendElement(Skew(x, 0));
+        break;
+      }
+      case eCSSKeyword_skewy:
+      {
+        double y = array->Item(1).GetFloatValue();
+        aFunctions.AppendElement(Skew(0, y));
+        break;
+      }
+      case eCSSKeyword_matrix:
+      {
+        gfx3DMatrix matrix;
+        matrix._11 = array->Item(1).GetFloatValue();
+        matrix._12 = array->Item(2).GetFloatValue();
+        matrix._13 = 0;
+        matrix._14 = array->Item(3).GetFloatValue();
+        matrix._21 = array->Item(4).GetFloatValue();
+        matrix._22 = array->Item(5).GetFloatValue();
+        matrix._23 = 0;
+        matrix._24 = array->Item(6).GetFloatValue();
+        matrix._31 = 0;
+        matrix._32 = 0;
+        matrix._33 = 1;
+        matrix._34 = 0;
+        matrix._41 = 0;
+        matrix._42 = 0;
+        matrix._43 = 0;
+        matrix._44 = 1;
+        aFunctions.AppendElement(TransformMatrix(matrix));
+        break;
+      }
+      case eCSSKeyword_matrix3d:
+      {
+        gfx3DMatrix matrix;
+        matrix._11 = array->Item(1).GetFloatValue();
+        matrix._12 = array->Item(2).GetFloatValue();
+        matrix._13 = array->Item(3).GetFloatValue();
+        matrix._14 = array->Item(4).GetFloatValue();
+        matrix._21 = array->Item(5).GetFloatValue();
+        matrix._22 = array->Item(6).GetFloatValue();
+        matrix._23 = array->Item(7).GetFloatValue();
+        matrix._24 = array->Item(8).GetFloatValue();
+        matrix._31 = array->Item(9).GetFloatValue();
+        matrix._32 = array->Item(10).GetFloatValue();
+        matrix._33 = array->Item(11).GetFloatValue();
+        matrix._34 = array->Item(12).GetFloatValue();
+        matrix._41 = array->Item(13).GetFloatValue();
+        matrix._42 = array->Item(14).GetFloatValue();
+        matrix._43 = array->Item(15).GetFloatValue();
+        matrix._44 = array->Item(16).GetFloatValue();
+        aFunctions.AppendElement(TransformMatrix(matrix));
+        break;
+      }
+      default:
+        printf("\nFunction not handled yet!\n");
+    }
+  }
+}
+
+static TimingFunction
+ToTimingFunction(css::ComputedTimingFunction& aCTF) {
+  if (aCTF.GetType() == nsTimingFunction::Function) {
+    const nsSMILKeySpline* spline = aCTF.GetFunction();
+    return TimingFunction(BezierFunction(spline->X1(), spline->Y1(),
+                                         spline->X2(), spline->Y2()));
+  }
+
+  PRUint32 type = aCTF.GetType() == nsTimingFunction::StepStart ? 1 : 2;
+  return TimingFunction(StepFunction(aCTF.GetSteps(), type));
+}
+
+static void
+AddTransformAnimations(ElementAnimations* ea, Layer* aLayer,
+                       const nsPoint& aOrigin)
+{
+  nsIFrame* frame = ea->mElement->GetPrimaryFrame();
+  nsRect bounds = nsDisplayTransform::GetFrameBoundsForTransform(frame);
+  float scale = nsDeviceContext::AppUnitsPerCSSPixel();
+  gfxPoint3D offsetToTransformOrigin =
+    nsDisplayTransform::GetDeltaToMozTransformOrigin(frame, scale, &bounds);
+  gfxPoint3D offsetToPerspectiveOrigin =
+    nsDisplayTransform::GetDeltaToMozPerspectiveOrigin(frame, scale);
+  nscoord perspective = 0.0;
+  nsStyleContext* parentStyleContext = frame->GetStyleContext()->GetParent();
+  if (parentStyleContext) {
+    const nsStyleDisplay* disp = parentStyleContext->GetStyleDisplay();
+    if (disp && disp->mChildPerspective.GetUnit() == eStyleUnit_Coord) {
+      perspective = disp->mChildPerspective.GetCoordValue();
+    }
+  }
+
+  for (PRUint32 animIdx = 0; animIdx < ea->mAnimations.Length(); animIdx++) {
+    ElementAnimation* anim = &ea->mAnimations[animIdx];
+    if (!anim->CanPerformOnCompositor(ea->mElement, TimeStamp::Now())) {
+      continue;
+    }
+    float iterations = anim->mIterationCount != NS_IEEEPositiveInfinity()
+                         ? anim->mIterationCount : -1;
+    for (PRUint32 propIdx = 0; propIdx < anim->mProperties.Length(); propIdx++) {
+      AnimationProperty* property = &anim->mProperties[propIdx];
+      InfallibleTArray<AnimationSegment> segments;
+
+      if (property->mProperty != eCSSProperty_transform) {
+        continue;
+      }
+      
+      for (PRUint32 segIdx = 0; segIdx < property->mSegments.Length(); segIdx++) {
+        AnimationPropertySegment* segment = &property->mSegments[segIdx];
+        nsCSSValueList* list = segment->mFromValue.GetCSSValueListValue();
+        InfallibleTArray<TransformFunction> fromFunctions;
+        AddTransformFunctions(list, fromFunctions);
+
+        list = segment->mToValue.GetCSSValueListValue();
+        InfallibleTArray<TransformFunction> toFunctions;
+        AddTransformFunctions(list, toFunctions);
+
+        segments.AppendElement(AnimationSegment(fromFunctions, toFunctions,
+                                                segment->mFromKey, segment->mToKey,
+                                                ToTimingFunction(segment->mTimingFunction)));
+      }
+
+      if (segments.Length() == 0) {
+        continue;
+      }
+      aLayer->AddAnimation(Animation(anim->mStartTime,
+                                     anim->mIterationDuration,
+                                     segments,
+                                     iterations,
+                                     anim->mDirection,
+                                     TransformData(aOrigin, offsetToTransformOrigin,
+                                                   offsetToPerspectiveOrigin,
+                                                   bounds, perspective)));
+     }
+  }
+}
+
+static void
+AddOpacityAnimations(ElementAnimations* ea, Layer* aLayer) {
+
+  for (PRUint32 animIdx = 0; animIdx < ea->mAnimations.Length(); animIdx++) {
+    ElementAnimation* anim = &ea->mAnimations[animIdx];
+    float iterations = anim->mIterationCount != NS_IEEEPositiveInfinity()
+                         ? anim->mIterationCount : -1;
+    if (!anim->CanPerformOnCompositor(ea->mElement, TimeStamp::Now())) {
+      continue;
+    }
+    for (PRUint32 propIdx = 0; propIdx < anim->mProperties.Length(); propIdx++) {
+      AnimationProperty* property = &anim->mProperties[propIdx];
+      InfallibleTArray<AnimationSegment> segments;
+      if (property->mProperty != eCSSProperty_opacity) {
+        continue;
+      }
+
+      for (PRUint32 segIdx = 0; segIdx < property->mSegments.Length(); segIdx++) {
+        AnimationPropertySegment* segment = &property->mSegments[segIdx];
+        segments.AppendElement(AnimationSegment(Opacity(segment->mFromValue.GetFloatValue()),
+                                                Opacity(segment->mToValue.GetFloatValue()),
+                                                segment->mFromKey,
+                                                segment->mToKey,
+                                                ToTimingFunction(segment->mTimingFunction)));
+      }
+
+      if (segments.Length() == 0) {
+        continue;
+      }
+      aLayer->AddAnimation(Animation(anim->mStartTime,
+                                     anim->mIterationDuration,
+                                     segments,
+                                     iterations,
+                                     anim->mDirection,
+                                     null_t()));
+     }
+  }
+}
+
 /*
  * Iterate through the non-clip items in aList and its descendants.
  * For each item we compute the effective clip rect. Each item is assigned
@@ -1624,6 +1912,7 @@ ContainerState::ProcessDisplayItems(const nsDisplayList& aList,
     nsIFrame* activeScrolledRoot =
       nsLayoutUtils::GetActiveScrolledRootFor(item, mBuilder);
 
+    nsIContent* content = item->GetUnderlyingFrame()->GetContent();
     // Assign the item to a layer
     if (layerState == LAYER_ACTIVE_FORCE ||
         layerState == LAYER_ACTIVE_EMPTY ||
@@ -1651,9 +1940,22 @@ ContainerState::ProcessDisplayItems(const nsDisplayList& aList,
         continue;
       }
 
+      ElementAnimations* animations = nsnull;
+      if (content) {
+        animations = nsAnimationManager::GetAnimations(content);
+      }
+      if (animations && animations->CanPerformOnCompositorThread()) {
+        if (item->GetType() == nsDisplayItem::TYPE_OPACITY) {
+          ownLayer->ClearAnimations();
+          AddOpacityAnimations(animations, ownLayer);
+        } else if (item->GetType() == nsDisplayItem::TYPE_TRANSFORM) {
+          ownLayer->ClearAnimations();
+          AddTransformAnimations(animations, ownLayer, item->ToReferenceFrame());
+        }
+      }
       // If it's not a ContainerLayer, we need to apply the scale transform
       // ourselves.
-      if (!ownLayer->AsContainerLayer()) {
+      else if (!ownLayer->AsContainerLayer()) {
         // The layer's current transform is applied first, then the result is scaled.
         gfx3DMatrix transform = ownLayer->GetTransform()*
             gfx3DMatrix::ScalingMatrix(mParameters.mXScale, mParameters.mYScale, 1.0f);

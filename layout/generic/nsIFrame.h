@@ -1212,6 +1212,8 @@ public:
    */
   bool IsTransformed() const;
 
+  bool HasOpacity() const;
+
   /**
    * Returns true if this frame is an SVG frame that has SVG transforms applied
    * to it, or if its parent frame is an SVG frame that has children-only

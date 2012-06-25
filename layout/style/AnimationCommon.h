@@ -107,6 +107,9 @@ public:
   typedef nsTimingFunction::Type Type;
   void Init(const nsTimingFunction &aFunction);
   double GetValue(double aPortion) const;
+  const nsSMILKeySpline* const GetFunction() const { return &mTimingFunction; }
+  Type GetType() const { return mType; }
+  PRUint32 GetSteps() const { return mSteps; }
 private:
   Type mType;
   nsSMILKeySpline mTimingFunction;
@@ -127,7 +130,7 @@ struct CommonElementAnimationData : public PRCList
     MOZ_COUNT_CTOR(CommonElementAnimationData);
     PR_INIT_CLIST(this);
   }
-  ~CommonElementAnimationData()
+  virtual ~CommonElementAnimationData()
   {
     NS_ABORT_IF_FALSE(mCalledPropertyDtor,
                       "must call destructor through element property dtor");
@@ -141,6 +144,12 @@ struct CommonElementAnimationData : public PRCList
     // This will call our destructor.
     mElement->DeleteProperty(mElementProperty);
   }
+
+  static bool
+  CanPerformOnCompositorThread(const dom::Element *aElement,
+			       nsCSSProperty aProperty);
+
+  virtual bool CanPerformOnCompositorThread() const = 0;
 
   dom::Element *mElement;
 

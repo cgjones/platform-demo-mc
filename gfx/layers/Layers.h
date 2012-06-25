@@ -43,8 +43,14 @@ namespace gl {
 class GLContext;
 }
 
+namespace css {
+class ComputedTimingFunction;
+}
+
 namespace layers {
 
+class Animation;
+class CommonLayerAttributes;
 class Layer;
 class ThebesLayer;
 class ContainerLayer;
@@ -543,6 +549,7 @@ private:
 };
 
 class ThebesLayer;
+typedef InfallibleTArray<Animation> AnimationArray;
 
 /**
  * A Layer represents anything that can be rendered onto a destination
@@ -563,7 +570,7 @@ public:
     TYPE_THEBES
   };
 
-  virtual ~Layer() {}
+  virtual ~Layer();
 
   /**
    * Returns the LayerManager this Layer belongs to. Note that the layer
@@ -729,6 +736,12 @@ public:
    */
   void SetIsFixedPosition(bool aFixedPosition) { mIsFixedPosition = aFixedPosition; }
 
+  bool AddAnimation(const Animation& aAnimation);
+  void ClearAnimations();
+  // This is only called when the layer tree is updated. To add an animation to
+  // this layer, use AddAnimation.
+  void SetAnimations(const AnimationArray& aAnimations);
+
   // These getters can be used anytime.
   float GetOpacity() { return mOpacity; }
   const nsIntRect* GetClipRect() { return mUseClipRect ? &mClipRect : nsnull; }
@@ -742,7 +755,9 @@ public:
   const gfx3DMatrix& GetTransform() { return mTransform; }
   bool GetIsFixedPosition() { return mIsFixedPosition; }
   Layer* GetMaskLayer() { return mMaskLayer; }
-
+  const AnimationArray& GetAnimations() { return mAnimations; }
+  const InfallibleTArray<InfallibleTArray<css::ComputedTimingFunction*>*>&
+    GetFunctions() { return mFunctions; } 
   /**
    * DRAWING PHASE ONLY
    *
@@ -928,20 +943,7 @@ public:
 #endif
 
 protected:
-  Layer(LayerManager* aManager, void* aImplData) :
-    mManager(aManager),
-    mParent(nsnull),
-    mNextSibling(nsnull),
-    mPrevSibling(nsnull),
-    mImplData(aImplData),
-    mMaskLayer(nsnull),
-    mOpacity(1.0),
-    mContentFlags(0),
-    mUseClipRect(false),
-    mUseTileSourceRect(false),
-    mIsFixedPosition(false),
-    mDebugColorIndex(0)
-    {}
+  Layer(LayerManager* aManager, void* aImplData);
 
   void Mutated() { mManager->Mutated(this); }
 
@@ -957,6 +959,12 @@ protected:
    * for shadow layers, GetShadowTransform()
    */
   const gfx3DMatrix& GetLocalTransform();
+
+  /**
+   * Returns the local opacity for this layer: either mOpacity or,
+   * for shadow layers, GetShadowOpacity()
+   */
+  const float GetLocalOpacity();
 
   /**
    * Computes a tweaked version of aTransform that snaps a point or a rectangle
@@ -983,6 +991,8 @@ protected:
   nsIntRegion mVisibleRegion;
   gfx3DMatrix mTransform;
   gfx3DMatrix mEffectiveTransform;
+  AnimationArray mAnimations;
+  InfallibleTArray<InfallibleTArray<css::ComputedTimingFunction*>*> mFunctions;
   float mOpacity;
   nsIntRect mClipRect;
   nsIntRect mTileSourceRect;

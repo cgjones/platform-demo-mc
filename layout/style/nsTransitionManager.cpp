@@ -29,53 +29,13 @@ using mozilla::TimeDuration;
 namespace dom = mozilla::dom;
 namespace css = mozilla::css;
 
-/*****************************************************************************
- * Per-Element data                                                          *
- *****************************************************************************/
-
-struct ElementPropertyTransition
+ElementTransitions::ElementTransitions(mozilla::dom::Element *aElement, nsIAtom *aElementProperty,
+                                       nsTransitionManager *aTransitionManager)
+  : CommonElementAnimationData(aElement, aElementProperty,
+                               aTransitionManager)
 {
-  nsCSSProperty mProperty;
-  nsStyleAnimation::Value mStartValue, mEndValue;
-  TimeStamp mStartTime; // actual start plus transition delay
-
-  // data from the relevant nsTransition
-  TimeDuration mDuration;
-  css::ComputedTimingFunction mTimingFunction;
-
-  // This is the start value to be used for a check for whether a
-  // transition is being reversed.  Normally the same as mStartValue,
-  // except when this transition started as the reversal of another
-  // in-progress transition.  Needed so we can handle two reverses in a
-  // row.
-  nsStyleAnimation::Value mStartForReversingTest;
-  // Likewise, the portion (in value space) of the "full" reversed
-  // transition that we're actually covering.  For example, if a :hover
-  // effect has a transition that moves the element 10px to the right
-  // (by changing 'left' from 0px to 10px), and the mouse moves in to
-  // the element (starting the transition) but then moves out after the
-  // transition has advanced 4px, the second transition (from 10px/4px
-  // to 0px) will have mReversePortion of 0.4.  (If the mouse then moves
-  // in again when the transition is back to 2px, the mReversePortion
-  // for the third transition (from 0px/2px to 10px) will be 0.8.
-  double mReversePortion;
-
-  // Compute the portion of the *value* space that we should be through
-  // at the given time.  (The input to the transition timing function
-  // has time units, the output has value units.)
-  double ValuePortionFor(TimeStamp aRefreshTime) const;
-
-  bool IsRemovedSentinel() const
-  {
-    return mStartTime.IsNull();
   }
 
-  void SetRemovedSentinel()
-  {
-    // assign the null time stamp
-    mStartTime = TimeStamp();
-  }
-};
 
 double
 ElementPropertyTransition::ValuePortionFor(TimeStamp aRefreshTime) const
@@ -104,32 +64,6 @@ ElementPropertyTransition::ValuePortionFor(TimeStamp aRefreshTime) const
 
   return mTimingFunction.GetValue(timePortion);
 }
-
-struct ElementTransitions : public mozilla::css::CommonElementAnimationData
-{
-  ElementTransitions(dom::Element *aElement, nsIAtom *aElementProperty,
-                     nsTransitionManager *aTransitionManager)
-    : CommonElementAnimationData(aElement, aElementProperty,
-                                 aTransitionManager)
-  {
-  }
-
-  void EnsureStyleRuleFor(TimeStamp aRefreshTime);
-
-
-  // Either zero or one for each CSS property:
-  nsTArray<ElementPropertyTransition> mPropertyTransitions;
-
-  // This style rule overrides style data with the currently
-  // transitioning value for an element that is executing a transition.
-  // It only matches when styling with animation.  When we style without
-  // animation, we need to not use it so that we can detect any new
-  // changes; if necessary we restyle immediately afterwards with
-  // animation.
-  nsRefPtr<css::AnimValuesStyleRule> mStyleRule;
-  // The refresh time associated with mStyleRule.
-  TimeStamp mStyleRuleRefreshTime;
-};
 
 static void
 ElementTransitionsPropertyDtor(void           *aObject,
@@ -171,6 +105,23 @@ ElementTransitions::EnsureStyleRuleFor(TimeStamp aRefreshTime)
       NS_ABORT_IF_FALSE(ok, "could not interpolate values");
     }
   }
+}
+
+bool
+ElementTransitions::CanPerformOnCompositorThread() const
+{
+  for (PRUint32 i = 0, i_end = mPropertyTransitions.Length(); i < i_end; ++i) {
+    const ElementPropertyTransition &pt = mPropertyTransitions[i];
+    if (pt.IsRemovedSentinel()) {
+      continue;
+    }
+    if (!CommonElementAnimationData::CanPerformOnCompositorThread(mElement,
+                                                                  pt.mProperty)) {
+      return false;
+    }
+  }
+  // return true;
+  return false; // XXXdz change this to return true when transitions are implemented
 }
 
 /*****************************************************************************
@@ -594,10 +545,6 @@ nsTransitionManager::GetElementTransitions(dom::Element *aElement,
   if (!et && aCreateIfNeeded) {
     // FIXME: Consider arena-allocating?
     et = new ElementTransitions(aElement, propName, this);
-    if (!et) {
-      NS_WARNING("out of memory");
-      return nsnull;
-    }
     nsresult rv = aElement->SetProperty(propName, et,
                                         ElementTransitionsPropertyDtor, nsnull);
     if (NS_FAILED(rv)) {

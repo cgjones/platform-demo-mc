@@ -7,6 +7,8 @@
 #include "nsRuleData.h"
 #include "nsCSSValue.h"
 #include "nsStyleContext.h"
+#include "nsIFrame.h"
+#include "nsAnimationManager.h"
 
 namespace mozilla {
 namespace css {
@@ -212,6 +214,31 @@ ComputedTimingFunction::GetValue(double aPortion) const
       return StepEnd(mSteps, aPortion);
   }
 }
+
+bool
+CommonElementAnimationData::CanPerformOnCompositorThread(const dom::Element *aElement,
+                                                         nsCSSProperty aProperty)
+{
+  nsIFrame* frame = aElement->GetPrimaryFrame();
+  /*if (frame && !frame->AreLayersMarkedActive()) {
+    printf("\n running into inactive layers....\n");
+    return false;
+  }*/
+  if (frame && frame->IsSVGTransformed()) {
+    return false;
+}
+  if (aProperty == eCSSProperty_opacity) {
+    return nsAnimationManager::CanAnimateOpacity();
+}
+  if (aProperty == eCSSProperty_transform && !(frame &&
+      frame->Preserves3D() &&
+      frame->Preserves3DChildren())) {
+    return nsAnimationManager::CanAnimateTransform();
+  }
+  return false;
+}
+
+
 
 }
 }
