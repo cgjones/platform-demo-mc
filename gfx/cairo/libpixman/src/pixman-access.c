@@ -938,6 +938,24 @@ store_scanline_x2b10g10r10 (bits_image_t *  image,
     }
 }
 
+static void
+store_scanline_16 (bits_image_t *  image,
+		   int             x,
+		   int             y,
+		   int             width,
+		   const uint32_t *v)
+{
+    uint16_t *bits = (uint16_t*)(image->bits + image->rowstride * y);
+    uint16_t *values = (uint16_t *)v;
+    uint16_t *pixel = bits + x;
+    int i;
+
+    for (i = 0; i < width; ++i)
+    {
+	WRITE (image, pixel++, values[i]);
+    }
+}
+
 /*
  * Contracts a 64bpp image to 32bpp and then stores it using a regular 32-bit
  * store proc. Despite the type, this function expects a uint64_t buffer.
@@ -1053,6 +1071,7 @@ typedef struct
     fetch_scanline_t		fetch_scanline_64;
     fetch_pixel_32_t		fetch_pixel_32;
     fetch_pixel_64_t		fetch_pixel_64;
+    store_scanline_t		store_scanline_16;
     store_scanline_t		store_scanline_32;
     store_scanline_t		store_scanline_64;
 } format_info_t;
@@ -1063,8 +1082,19 @@ typedef struct
 	    fetch_scanline_ ## format,					\
 	    fetch_scanline_generic_64,					\
 	    fetch_pixel_ ## format, fetch_pixel_generic_64,		\
+	    NULL,							\
 	    store_scanline_ ## format, store_scanline_generic_64	\
     }
+#define FORMAT_INFO16(format) 						\
+    {									\
+	PIXMAN_ ## format,						\
+	    fetch_scanline_ ## format,					\
+	    fetch_scanline_generic_64,					\
+	    fetch_pixel_ ## format, fetch_pixel_generic_64,		\
+	    store_scanline_16,						\
+	    store_scanline_ ## format, store_scanline_generic_64	\
+    }
+
 
 static const format_info_t accessors[] =
 {
@@ -1084,8 +1114,8 @@ static const format_info_t accessors[] =
     FORMAT_INFO (b8g8r8),
     
 /* 16bpp formats */
-    FORMAT_INFO (r5g6b5),
-    FORMAT_INFO (b5g6r5),
+    FORMAT_INFO16 (r5g6b5),
+    FORMAT_INFO16 (b5g6r5),
     
     FORMAT_INFO (a1r5g5b5),
     FORMAT_INFO (x1r5g5b5),
@@ -1183,6 +1213,7 @@ setup_accessors (bits_image_t *image)
 	    image->fetch_scanline_64 = info->fetch_scanline_64;
 	    image->fetch_pixel_32 = info->fetch_pixel_32;
 	    image->fetch_pixel_64 = info->fetch_pixel_64;
+	    image->store_scanline_16 = info->store_scanline_16;
 	    image->store_scanline_32 = info->store_scanline_32;
 	    image->store_scanline_64 = info->store_scanline_64;
 	    
