@@ -72,7 +72,7 @@ struct ElementTransitions : public mozilla::css::CommonElementAnimationData
   void EnsureStyleRuleFor(mozilla::TimeStamp aRefreshTime);
 
   // True if this animation can be performed on the compositor thread.
-  virtual bool CanPerformOnCompositorThread() const;
+  // virtual CanPerformOnCompositorThread() const;
   // Either zero or one for each CSS property:
   nsTArray<ElementPropertyTransition> mPropertyTransitions;
   

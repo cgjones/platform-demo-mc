@@ -12,6 +12,7 @@
 #include "nsSMILKeySpline.h"
 #include "nsEventDispatcher.h"
 #include "nsDisplayList.h"
+#include "nsCSSFrameConstructor.h"
 
 using namespace mozilla;
 
@@ -68,6 +69,12 @@ ElementAnimations::GetPositionInIteration(TimeStamp aStartTime, TimeStamp aCurre
       nsIFrame* frame = aEa->mElement->OwnerDoc()->GetShell()->GetPresContext()->
         GetRootPresContext()->PresShell()->GetRootFrame();
       frame->InvalidateWithFlags(frame->GetRect(), nsIFrame::INVALIDATE_NO_THEBES_LAYERS);
+      // Explicitly request a re-resolve and reflow to update style since the
+      // animation is over.
+      // XXXdbaron: is this the right way to do this?
+      aEa->mElement->GetPrimaryFrame()->PresContext()->PresShell()->FrameConstructor()->
+        PostRestyleEvent(aEa->mElement, eRestyle_Subtree,
+                         nsChangeHint_ReflowFrame);
     }
 
       AnimationEventInfo ei(aEa->mElement, aAnimation->mName, NS_ANIMATION_END,
@@ -286,8 +293,9 @@ CanPerformAnimationOnCompositor(const ElementAnimation* aAnim,
   for (PRUint32 propIdx = 0, propEnd = aAnim->mProperties.Length();
        propIdx != propEnd; ++propIdx) {
     const AnimationProperty &prop = aAnim->mProperties[propIdx];
-    if (!mozilla::css::CommonElementAnimationData::CanPerformOnCompositorThread(aElement,
-                                                                                prop.mProperty)) {
+    if (!mozilla::css::CommonElementAnimationData::
+        CanAnimatePropertyOnCompositor(aElement,
+                                       prop.mProperty)) {
       return false;
     }
   }
@@ -300,6 +308,22 @@ ElementAnimation::CanPerformOnCompositor(mozilla::dom::Element* aElement,
   return CanPerformAnimationOnCompositor(this, aElement) &&
     !IsPaused() && aTime > mStartTime &&
     (aTime - mStartTime) / mIterationDuration < mIterationCount;
+}
+
+bool
+ElementAnimations::HasAnimationOfProperty(nsCSSProperty aProperty) const
+{
+  for (PRUint32 animIdx = mAnimations.Length(); animIdx-- != 0; ) {
+    const ElementAnimation &anim = mAnimations[animIdx];
+    for (PRUint32 propIdx = 0, propEnd = anim.mProperties.Length();
+         propIdx != propEnd; ++propIdx) {
+      const AnimationProperty &prop = anim.mProperties[propIdx];
+      if (aProperty == prop.mProperty) {
+        return true;
+      }
+    }
+  }
+  return false;
 }
 
 bool

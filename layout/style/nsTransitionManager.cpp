@@ -106,7 +106,7 @@ ElementTransitions::EnsureStyleRuleFor(TimeStamp aRefreshTime)
     }
   }
 }
-
+/*
 bool
 ElementTransitions::CanPerformOnCompositorThread() const
 {
@@ -122,7 +122,7 @@ ElementTransitions::CanPerformOnCompositorThread() const
   }
   // return true;
   return false; // XXXdz change this to return true when transitions are implemented
-}
+}*/
 
 /*****************************************************************************
  * nsTransitionManager                                                       *

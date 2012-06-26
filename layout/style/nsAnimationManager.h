@@ -16,8 +16,6 @@
 
 class nsCSSKeyframesRule;
 
-typedef mozilla::Preferences Preferences;
-
   struct AnimationEventInfo {
     nsRefPtr<mozilla::dom::Element> mElement;
     nsAnimationEvent mEvent;
@@ -151,7 +149,8 @@ struct ElementAnimations : public mozilla::css::CommonElementAnimationData
   }
 
   // True if this animation can be performed on the compositor thread.
-  virtual bool CanPerformOnCompositorThread() const;
+  bool CanPerformOnCompositorThread() const;
+  bool HasAnimationOfProperty(nsCSSProperty aProperty) const;
   // This style rule contains the style data for currently animating
   // values.  It only matches when styling with animation.  When we
   // style without animation, we need to not use it so that we can
@@ -183,15 +182,15 @@ public:
 
   static bool CanAnimateOpacity() {
     static bool canAnimateOpacity =
-      Preferences::GetBool("layers.offmainthreadcomposition.animate-opacity", false) &&
-      Preferences::GetBool("layers.offmainthreadcomposition.enabled", false);
+      mozilla::Preferences::GetBool("layers.offmainthreadcomposition.animate-opacity", false) &&
+      mozilla::Preferences::GetBool("layers.offmainthreadcomposition.enabled", false);
     return canAnimateOpacity;
   }
 
   static bool CanAnimateTransform() {
     static bool canAnimateTransform =
-      Preferences::GetBool("layers.offmainthreadcomposition.animate-transform", false) &&
-      Preferences::GetBool("layers.offmainthreadcomposition.enabled", false);
+      mozilla::Preferences::GetBool("layers.offmainthreadcomposition.animate-transform", false) &&
+      mozilla::Preferences::GetBool("layers.offmainthreadcomposition.enabled", false);
     return canAnimateTransform;
   }
 

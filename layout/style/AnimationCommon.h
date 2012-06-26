@@ -107,7 +107,10 @@ public:
   typedef nsTimingFunction::Type Type;
   void Init(const nsTimingFunction &aFunction);
   double GetValue(double aPortion) const;
-  const nsSMILKeySpline* const GetFunction() const { return &mTimingFunction; }
+  const nsSMILKeySpline* const GetFunction() const {
+    NS_ASSERTION(mType == Type::Function, "Type mismatch");
+    return &mTimingFunction;
+  }
   Type GetType() const { return mType; }
   PRUint32 GetSteps() const { return mSteps; }
 private:
@@ -146,10 +149,8 @@ struct CommonElementAnimationData : public PRCList
   }
 
   static bool
-  CanPerformOnCompositorThread(const dom::Element *aElement,
-			       nsCSSProperty aProperty);
-
-  virtual bool CanPerformOnCompositorThread() const = 0;
+  CanAnimatePropertyOnCompositor(const dom::Element *aElement,
+                                 nsCSSProperty aProperty);
 
   dom::Element *mElement;
 

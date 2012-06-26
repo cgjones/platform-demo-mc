@@ -522,7 +522,6 @@ SampleAnimations(Layer* aLayer, TimeStamp aPoint, bool* aActiveAnimation)
                                                 numIterations,
                                                 animation.direction());
 
-    printf("\nPosition: %f\n", positionInIteration);
     if (positionInIteration == -1) {
         animations.RemoveElementAt(i);
         functions.RemoveElementAt(i);

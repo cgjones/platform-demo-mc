@@ -927,29 +927,31 @@ nsIFrame::GetPaddingRect() const
 bool
 nsIFrame::IsTransformed() const
 {
-  bool hasOMTA = false;
+  bool hasOMTATransform = false;
   if (mContent) {
     ElementAnimations* ea = nsAnimationManager::GetAnimations(mContent);
     if (ea)
-      hasOMTA = ea->CanPerformOnCompositorThread();
+      hasOMTATransform = ea->HasAnimationOfProperty(eCSSProperty_transform) &&
+        ea->CanPerformOnCompositorThread();
   }
 
-  return (mState & NS_FRAME_MAY_BE_TRANSFORMED) &&
+  return ((mState & NS_FRAME_MAY_BE_TRANSFORMED) &&
           (GetStyleDisplay()->HasTransform() ||
-           IsSVGTransformed()) || hasOMTA; 
+           IsSVGTransformed())) || hasOMTATransform;
 }
 
 bool
 nsIFrame::HasOpacity() const
 {
-  bool hasOMTA = false;
+  bool hasOMTAOpacity = false;
   if (mContent) {
     ElementAnimations* ea = nsAnimationManager::GetAnimations(mContent);
     if (ea)
-      hasOMTA = ea->CanPerformOnCompositorThread();
+      hasOMTAOpacity = ea->HasAnimationOfProperty(eCSSProperty_opacity) &&
+        ea->CanPerformOnCompositorThread();
   }
 
-  return GetStyleDisplay()->mOpacity < 1.0f || hasOMTA;
+  return GetStyleDisplay()->mOpacity < 1.0f || hasOMTAOpacity;
 }
 
 bool
@@ -2079,7 +2081,7 @@ nsIFrame::BuildDisplayListForChild(nsDisplayListBuilder*   aBuilder,
   // Child is composited if it's transformed, partially transparent, or has
   // SVG effects.
   const nsStyleDisplay* disp = child->GetStyleDisplay();
-  bool isVisuallyAtomic = disp->mOpacity != 1.0f
+  bool isVisuallyAtomic = child->HasOpacity()
     || child->IsTransformed()
     || nsSVGIntegrationUtils::UsingEffectsForFrame(child);
 

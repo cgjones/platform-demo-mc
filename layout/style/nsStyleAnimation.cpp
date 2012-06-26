@@ -956,7 +956,7 @@ AddTransformScale(const nsCSSValue &aValue1, double aCoeff1,
   aResult.SetFloatValue(result + 1.0f, eCSSUnit_Number);
 }
 
-already_AddRefed<nsCSSValue::Array>
+/* static */ already_AddRefed<nsCSSValue::Array>
 nsStyleAnimation::AppendTransformFunction(nsCSSKeyword aTransformFunction,
                         nsCSSValueList**& aListTail)
 {

@@ -216,23 +216,25 @@ ComputedTimingFunction::GetValue(double aPortion) const
 }
 
 bool
-CommonElementAnimationData::CanPerformOnCompositorThread(const dom::Element *aElement,
-                                                         nsCSSProperty aProperty)
+CommonElementAnimationData::CanAnimatePropertyOnCompositor(const dom::Element *aElement,
+                                                           nsCSSProperty aProperty)
 {
   nsIFrame* frame = aElement->GetPrimaryFrame();
+  // FIXME: should this check be happening?  It seems to return false for my
+  // testcases.
   /*if (frame && !frame->AreLayersMarkedActive()) {
     printf("\n running into inactive layers....\n");
     return false;
   }*/
-  if (frame && frame->IsSVGTransformed()) {
-    return false;
-}
   if (aProperty == eCSSProperty_opacity) {
     return nsAnimationManager::CanAnimateOpacity();
 }
   if (aProperty == eCSSProperty_transform && !(frame &&
       frame->Preserves3D() &&
       frame->Preserves3DChildren())) {
+    if (frame && frame->IsSVGTransformed()) {
+      return false;
+}
     return nsAnimationManager::CanAnimateTransform();
   }
   return false;
