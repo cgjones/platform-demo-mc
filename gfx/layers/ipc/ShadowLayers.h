@@ -38,6 +38,11 @@ class SharedImage;
 class CanvasSurface;
 class BasicTiledLayerBuffer;
 
+enum OpenMode {
+  OpenReadOnly,
+  OpenReadWrite
+};
+
 /**
  * We want to share layer trees across thread contexts and address
  * spaces for several reasons; chief among them
@@ -81,7 +86,10 @@ class BasicTiledLayerBuffer;
 
 class ShadowLayerForwarder
 {
+  friend class AutoOpenSurface;
+
 public:
+  typedef gfxASurface::gfxContentType gfxContentType;
   typedef LayerManager::LayersBackend LayersBackend;
 
   virtual ~ShadowLayerForwarder();
@@ -227,8 +235,8 @@ public:
    * The basic lifecycle is
    *
    *  - a Layer needs a buffer.  Its ShadowableLayer subclass calls
-   *    AllocDoubleBuffer(), then calls one of the Created*Buffer()
-   *    methods above to transfer the (temporary) front buffer to its
+   *    AllocBuffer(), then calls one of the Created*Buffer() methods
+   *    above to transfer the (temporary) front buffer to its
    *    ShadowLayer in the other process.  The Layer needs a
    *    gfxASurface to paint, so the ShadowableLayer uses
    *    OpenDescriptor(backBuffer) to get that surface, and hands it
@@ -255,34 +263,12 @@ public:
    * Shmem (gfxSharedImageSurface) buffers are available on all
    * platforms, but they may not be optimal.
    *
-   * NB: this interface is being deprecated in favor of the
-   * SurfaceDescriptor variant below.
-   */
-  bool AllocDoubleBuffer(const gfxIntSize& aSize,
-                           gfxASurface::gfxContentType aContent,
-                           gfxSharedImageSurface** aFrontBuffer,
-                           gfxSharedImageSurface** aBackBuffer);
-  void DestroySharedSurface(gfxSharedImageSurface* aSurface);
-
-  bool AllocBuffer(const gfxIntSize& aSize,
-                     gfxASurface::gfxContentType aContent,
-                     gfxSharedImageSurface** aBuffer);
-
-  /**
    * In the absence of platform-specific buffers these fall back to
    * Shmem/gfxSharedImageSurface.
    */
-  bool AllocDoubleBuffer(const gfxIntSize& aSize,
-                           gfxASurface::gfxContentType aContent,
-                           SurfaceDescriptor* aFrontBuffer,
-                           SurfaceDescriptor* aBackBuffer);
-
   bool AllocBuffer(const gfxIntSize& aSize,
-                     gfxASurface::gfxContentType aContent,
-                     SurfaceDescriptor* aBuffer);
-
-  static already_AddRefed<gfxASurface>
-  OpenDescriptor(const SurfaceDescriptor& aSurface);
+                   gfxASurface::gfxContentType aContent,
+                   SurfaceDescriptor* aBuffer);
 
   void DestroySharedSurface(SurfaceDescriptor* aSurface);
 
@@ -311,17 +297,56 @@ protected:
   PLayersChild* mShadowManager;
 
 private:
-  bool PlatformAllocDoubleBuffer(const gfxIntSize& aSize,
-                                   gfxASurface::gfxContentType aContent,
-                                   SurfaceDescriptor* aFrontBuffer,
-                                   SurfaceDescriptor* aBackBuffer);
+  bool AllocBuffer(const gfxIntSize& aSize,
+                   gfxASurface::gfxContentType aContent,
+                   gfxSharedImageSurface** aBuffer);
 
   bool PlatformAllocBuffer(const gfxIntSize& aSize,
-                             gfxASurface::gfxContentType aContent,
-                             SurfaceDescriptor* aBuffer);
+                           gfxASurface::gfxContentType aContent,
+                           SurfaceDescriptor* aBuffer);
+
+  /**
+   * Try to query the content type efficiently, but at worst map the
+   * surface and return it in *aSurface.
+   */
+  static gfxContentType
+  GetDescriptorSurfaceContentType(const SurfaceDescriptor& aDescriptor,
+                                  OpenMode aMode,
+                                  gfxASurface** aSurface);
+  /**
+   * It can be expensive to open a descriptor just to query its
+   * content type.  If the platform impl can do this cheaply, it will
+   * set *aContent and return true.
+   */
+  static bool
+  PlatformGetDescriptorSurfaceContentType(const SurfaceDescriptor& aDescriptor,
+                                          OpenMode aMode,
+                                          gfxContentType* aContent,
+                                          gfxASurface** aSurface);
+  // (Same as above, but for surface size.)
+  static gfxIntSize
+  GetDescriptorSurfaceSize(const SurfaceDescriptor& aDescriptor,
+                           OpenMode aMode,
+                           gfxASurface** aSurface);
+  static bool
+  PlatformGetDescriptorSurfaceSize(const SurfaceDescriptor& aDescriptor,
+                                   OpenMode aMode,
+                                   gfxIntSize* aSize,
+                                   gfxASurface** aSurface);
 
   static already_AddRefed<gfxASurface>
-  PlatformOpenDescriptor(const SurfaceDescriptor& aDescriptor);
+  OpenDescriptor(OpenMode aMode, const SurfaceDescriptor& aSurface);
+
+  static already_AddRefed<gfxASurface>
+  PlatformOpenDescriptor(OpenMode aMode, const SurfaceDescriptor& aDescriptor);
+
+  /** Make this descriptor unusable for gfxASurface clients.  A
+   * private interface with AutoOpenSurface. */
+  static void
+  CloseDescriptor(const SurfaceDescriptor& aDescriptor);
+
+  static bool
+  PlatformCloseDescriptor(const SurfaceDescriptor& aDescriptor);
 
   bool PlatformDestroySharedSurface(SurfaceDescriptor* aSurface);
 
@@ -334,6 +359,46 @@ private:
   bool mIsFirstPaint;
 };
 
+/**
+ * Some surface types can be fairly expensive to open.  This helper
+ * tries to put off opening surfaces as long as it can, until
+ * ahsolutely necessary.  And after being forced to open, it remembers
+ * the mapping so it doesn't need to be redone.
+ */
+class NS_STACK_CLASS AutoOpenSurface
+{
+public:
+  typedef gfxASurface::gfxContentType gfxContentType;
+
+  /** |aDescriptor| must be valid while AutoOpenSurface is
+   * in scope. */
+  AutoOpenSurface(OpenMode aMode, const SurfaceDescriptor& aDescriptor);
+
+  ~AutoOpenSurface();
+
+  /**
+   * These helpers do not necessarily need to open the descriptor to
+   * return an answer.
+   */
+  gfxContentType ContentType();
+  gfxIntSize Size();
+
+  /** This can't escape the scope of AutoOpenSurface. */
+  gfxASurface* Get();
+
+  /** This can't escape the scope of AutoOpenSurface. */
+  gfxImageSurface* GetAsImage();
+
+
+private:
+  const SurfaceDescriptor& mDescriptor;
+  nsRefPtr<gfxASurface> mSurface;
+  nsRefPtr<gfxImageSurface> mSurfaceAsImage;
+  OpenMode mMode;
+
+  AutoOpenSurface(const AutoOpenSurface&) MOZ_DELETE;
+  AutoOpenSurface& operator=(const AutoOpenSurface&) MOZ_DELETE;
+};
 
 class ShadowLayerManager : public LayerManager
 {

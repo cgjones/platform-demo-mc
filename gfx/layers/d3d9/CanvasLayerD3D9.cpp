@@ -311,12 +311,11 @@ ShadowCanvasLayerD3D9::Swap(const CanvasSurface& aNewFront,
   NS_ASSERTION(aNewFront.type() == CanvasSurface::TSurfaceDescriptor, 
     "ShadowCanvasLayerD3D9::Swap expected CanvasSurface surface");
 
-  nsRefPtr<gfxASurface> surf = 
-    ShadowLayerForwarder::OpenDescriptor(aNewFront);
+  AutoOpenSurface surf(OpenReadOnly, aNewFront);
   if (!mBuffer) {
     Init(needYFlip);
   }
-  mBuffer->Upload(surf, GetVisibleRegion().GetBounds());
+  mBuffer->Upload(surf.Get(), GetVisibleRegion().GetBounds());
 
   *aNewBack = aNewFront;
 }

@@ -617,8 +617,8 @@ ShadowThebesLayerD3D9::Swap(const ThebesBuffer& aNewFront,
   }
 
   if (mBuffer) {
-    nsRefPtr<gfxASurface> surf = ShadowLayerForwarder::OpenDescriptor(aNewFront.buffer());
-    mBuffer->Upload(surf, GetVisibleRegion().GetBounds());
+    AutoOpenSurface surf(OpenReadOnly, aNewFront.buffer());
+    mBuffer->Upload(surf.Get(), GetVisibleRegion().GetBounds());
   }
 
   *aNewBack = aNewFront;

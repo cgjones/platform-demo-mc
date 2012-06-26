@@ -535,19 +535,17 @@ ShadowImageLayerD3D9::Swap(const SharedImage& aNewFront,
     if (!mBuffer) {
       mBuffer = new ShadowBufferD3D9(this);
     }
-    nsRefPtr<gfxASurface> surf =
-      ShadowLayerForwarder::OpenDescriptor(aNewFront.get_SurfaceDescriptor());
-
-    mBuffer->Upload(surf, GetVisibleRegion().GetBounds());
+    AutoOpenSurface surf(OpenReadOnly, aNewFront.get_SurfaceDescriptor());
+    mBuffer->Upload(surf.Get(), GetVisibleRegion().GetBounds());
   } else {
     const YUVImage& yuv = aNewFront.get_YUVImage();
 
-    nsRefPtr<gfxSharedImageSurface> surfY =
-      gfxSharedImageSurface::Open(yuv.Ydata());
-    nsRefPtr<gfxSharedImageSurface> surfU =
-      gfxSharedImageSurface::Open(yuv.Udata());
-    nsRefPtr<gfxSharedImageSurface> surfV =
-      gfxSharedImageSurface::Open(yuv.Vdata());
+    AutoOpenSurface asurfY(OpenReadOnly, yuv.Ydata());
+    AutoOpenSurface asurfU(OpenReadOnly, yuv.Udata());
+    AutoOpenSurface asurfV(OpenReadOnly, yuv.Vdata());
+    nsRefPtr<gfxImageSurface> surfY = asurfY.GetAsImage();
+    nsRefPtr<gfxImageSurface> surfU = asurfU.GetAsImage();
+    nsRefPtr<gfxImageSurface> surfV = asurfV.GetAsImage();
 
     PlanarYCbCrImage::Data data;
     data.mYChannel = surfY->Data();

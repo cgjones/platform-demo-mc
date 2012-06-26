@@ -305,12 +305,12 @@ ShadowCanvasLayerOGL::Initialize(const Data& aData)
 void
 ShadowCanvasLayerOGL::Init(const CanvasSurface& aNewFront, bool needYFlip)
 {
-  nsRefPtr<gfxASurface> surf = ShadowLayerForwarder::OpenDescriptor(aNewFront);
+  AutoOpenSurface autoSurf(OpenReadOnly, aNewFront);
 
   mNeedsYFlip = needYFlip;
 
-  mTexImage = gl()->CreateTextureImage(surf->GetSize(),
-                                       surf->GetContentType(),
+  mTexImage = gl()->CreateTextureImage(autoSurf.Size(),
+                                       autoSurf.ContentType(),
                                        LOCAL_GL_CLAMP_TO_EDGE,
                                        mNeedsYFlip ? TextureImage::NeedsYFlip : TextureImage::NoFlags);
 }
@@ -321,14 +321,14 @@ ShadowCanvasLayerOGL::Swap(const CanvasSurface& aNewFront,
                            CanvasSurface* aNewBack)
 {
   if (!mDestroyed) {
-    nsRefPtr<gfxASurface> surf = ShadowLayerForwarder::OpenDescriptor(aNewFront);
-    gfxIntSize sz = surf->GetSize();
+    AutoOpenSurface autoSurf(OpenReadOnly, aNewFront);
+    gfxIntSize sz = autoSurf.Size();
     if (!mTexImage || mTexImage->GetSize() != sz ||
-        mTexImage->GetContentType() != surf->GetContentType()) {
+        mTexImage->GetContentType() != autoSurf.ContentType()) {
       Init(aNewFront, needYFlip);
     }
     nsIntRegion updateRegion(nsIntRect(0, 0, sz.width, sz.height));
-    mTexImage->DirectUpdate(surf, updateRegion);
+    mTexImage->DirectUpdate(autoSurf.Get(), updateRegion);
   }
 
   *aNewBack = aNewFront;
