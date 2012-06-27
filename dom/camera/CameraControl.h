@@ -30,6 +30,12 @@ class GetParameterTask;
 class PushParametersTask;
 class PullParametersTask;
 
+namespace mozilla {
+namespace layers {
+class GraphicBufferLocked;
+}
+}
+
 /*
   Main camera control.
 */
@@ -87,6 +93,7 @@ public:
   void TakePictureComplete(PRUint8 *aData, PRUint32 aLength);
   void AutoFocusComplete(bool aSuccess);
   void ReceiveFrame(PRUint8 *aData, PRUint32 aLength);
+  void ReceiveFrame(mozilla::layers::GraphicBufferLocked* aBuffer);
 
   nsCameraControl(PRUint32 aCameraId, nsIThread *aCameraThread);
   ~nsCameraControl();

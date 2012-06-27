@@ -14,6 +14,8 @@
 #include <utils/String8.h>
 #include <utils/threads.h>
 
+#include "ImageLayers.h"
+
 namespace android {
 
 class CameraNativeWindow
@@ -37,6 +39,10 @@ public:
     static int hook_query(const ANativeWindow* window, int what, int* value);
     static int hook_queueBuffer(ANativeWindow* window, ANativeWindowBuffer* buffer);
     static int hook_setSwapInterval(ANativeWindow* window, int interval);
+
+    already_AddRefed<mozilla::layers::GraphicBufferLocked> lockCurrentBuffer();
+    void freeBuffer(uint32_t index);
+    void abandon();
 
 protected:
 
@@ -118,6 +124,12 @@ private:
             // circumstances. See the note about the current buffer in the
             // documentation for DEQUEUED.
             QUEUED = 2,
+
+            // RENDERING indicates that the buffer has been sent to
+            // the compositor, and has not yet available for the
+            // client to dequeue. When the compositor has finished its
+            // job, the buffer will be returned to FREE state.
+            RENDERING = 3,
         };
 
         // mBufferState is the current state of this buffer slot.
@@ -172,6 +184,38 @@ private:
 
     // mFrameCounter is the free running counter, incremented for every buffer queued
     uint64_t mFrameCounter;
+};
+
+class CameraGraphicBuffer : public mozilla::layers::GraphicBufferLocked {
+public:
+  CameraGraphicBuffer(CameraNativeWindow* aNativeWindow,
+                      uint32_t aIndex,
+                      GraphicBuffer* aGraphicBuffer)
+    : GraphicBufferLocked(aGraphicBuffer)
+    , mNativeWindow(aNativeWindow)
+    , mIndex(aIndex)
+    , mLocked(true)
+  {}
+
+  virtual ~CameraGraphicBuffer() {}
+
+  virtual void Unlock() MOZ_OVERRIDE
+  {
+    if (mLocked) {
+      // The window might has been destroyed. The buffer is no longer
+      // valid at that point.
+      sp<CameraNativeWindow> window = mNativeWindow.promote();
+      if (window.get()) {
+        window->freeBuffer(mIndex);
+        mLocked = false;
+      }
+    }
+  }
+
+protected:
+  wp<CameraNativeWindow> mNativeWindow;
+  uint32_t mIndex;
+  bool mLocked;
 };
 
 }; // namespace android

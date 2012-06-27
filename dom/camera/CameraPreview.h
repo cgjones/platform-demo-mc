@@ -14,6 +14,11 @@
 using namespace mozilla;
 using namespace mozilla::layers;
 
+namespace mozilla {
+namespace layers {
+class GraphicBufferLocked;
+}
+}
 
 class CameraPreview : public nsDOMMediaStream
                     , public MediaStreamListener
@@ -29,7 +34,8 @@ public:
     return nsDOMMediaStream::GetCurrentTime(aCurrentTime);
   }
 
-  void ReceiveFrame(PRUint8 *aData, PRUint32 aLength);
+  void ReceiveFrame(PRUint8* aData, PRUint32 aLength);
+  void ReceiveFrame(GraphicBufferLocked* aBuffer);
 
   void Start();
   void Stop();

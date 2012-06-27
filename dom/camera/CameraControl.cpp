@@ -569,6 +569,14 @@ nsCameraControl::ReceiveFrame(PRUint8* aData, PRUint32 aLength)
 }
 
 void
+nsCameraControl::ReceiveFrame(GraphicBufferLocked* aBuffer)
+{
+  if (mPreview) {
+    mPreview->ReceiveFrame(aBuffer);
+  }
+}
+
+void
 nsCameraControl::AutoFocusComplete(bool aSuccess)
 {
   /* Auto focusing can change some of the camera's parameters, so

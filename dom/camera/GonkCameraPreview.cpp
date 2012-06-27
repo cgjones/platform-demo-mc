@@ -103,7 +103,7 @@ CameraPreview::~CameraPreview()
 }
 
 void
-CameraPreview::ReceiveFrame(PRUint8 *aData, PRUint32 aLength)
+CameraPreview::ReceiveFrame(PRUint8* aData, PRUint32 aLength)
 {
   DOM_CAMERA_LOGI("%s:%d : this=%p\n", __func__, __LINE__, this);
 
@@ -184,6 +184,44 @@ CameraPreview::ReceiveFrame(PRUint8 *aData, PRUint32 aLength)
   data.mPicSize = gfxIntSize(mWidth, mHeight);
   data.mStereoMode = mozilla::layers::STEREO_MODE_MONO;
   videoImage->SetData(data); // Copies buffer
+
+  mVideoSegment.AppendFrame(videoImage, 1, gfxIntSize(mWidth, mHeight));
+  mInput->AppendToTrack(TRACK_VIDEO, &mVideoSegment);
+
+  mFrameCount += 1;
+
+  if ((mFrameCount % 10) == 0) {
+    DOM_CAMERA_LOGI("%s:%d : mFrameCount = %d\n", __func__, __LINE__, mFrameCount);
+  }
+}
+
+void
+CameraPreview::ReceiveFrame(mozilla::layers::GraphicBufferLocked* aBuffer)
+{
+  DOM_CAMERA_LOGI("%s:%d : this=%p\n", __func__, __LINE__, this);
+
+#if 0
+  if (mInput->HaveEnoughBuffered(TRACK_VIDEO)) {
+    if (mDiscardedFrameCount == 0) {
+      DOM_CAMERA_LOGI("mInput has enough data buffered, starting to discard\n");
+    }
+    ++mDiscardedFrameCount;
+    aBuffer->Unlock();
+    return;
+  } else if (mDiscardedFrameCount) {
+    DOM_CAMERA_LOGI("mInput needs more data again; discarded %d frames in a row\n", mDiscardedFrameCount);
+    mDiscardedFrameCount = 0;
+  }
+#endif
+
+  Image::Format format = Image::GONK_IO_SURFACE;
+  nsRefPtr<Image> image = mImageContainer->CreateImage(&format, 1);
+  image->AddRef();
+  GonkIOSurfaceImage* videoImage = static_cast<GonkIOSurfaceImage*> (image.get());
+  GonkIOSurfaceImage::Data data;
+  data.mGraphicBuffer = aBuffer;
+  data.mPicSize = gfxIntSize(mWidth, mHeight);
+  videoImage->SetData(data);
 
   mVideoSegment.AppendFrame(videoImage, 1, gfxIntSize(mWidth, mHeight));
   mInput->AppendToTrack(TRACK_VIDEO, &mVideoSegment);

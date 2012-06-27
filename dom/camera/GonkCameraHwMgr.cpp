@@ -108,7 +108,13 @@ GonkCameraHardware::DataCallback(int32_t aMsgType, const sp<IMemory> &aDataPtr, 
   if (camera) {
     switch (aMsgType) {
       case CAMERA_MSG_PREVIEW_FRAME:
-        GonkCameraReceiveFrame(camera, (PRUint8*)aDataPtr->pointer(), aDataPtr->size());
+        //GonkCameraReceiveFrame(camera, (PRUint8*)aDataPtr->pointer(), aDataPtr->size());
+        {
+          android::CameraNativeWindow* window = static_cast<android::CameraNativeWindow*>(hw->mWindow.get());
+          nsRefPtr<mozilla::layers::GraphicBufferLocked> buffer = window->lockCurrentBuffer();
+          GonkCameraReceiveFrame(camera, buffer);
+        }
+
         break;
 
       case CAMERA_MSG_COMPRESSED_IMAGE:
@@ -225,6 +231,8 @@ GonkCameraHardware::releaseCameraHardwareHandle(PRUint32 aHwHandle)
   if (hw) {
     DOM_CAMERA_LOGI("%s: before: sHwHandle = %d\n", __func__, sHwHandle);
     sHwHandle += 1; // invalidate old handles before deleting
+    android::CameraNativeWindow* window = static_cast<android::CameraNativeWindow*>(hw->mWindow.get());
+    window->abandon();
     hw->mClosing = true;
     hw->mHardware->disableMsgType(CAMERA_MSG_ALL_MSGS);
     hw->mHardware->stopPreview();

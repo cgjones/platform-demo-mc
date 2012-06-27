@@ -638,3 +638,9 @@ GonkCameraReceiveFrame(nsCameraControl* gc, PRUint8* aData, PRUint32 aLength)
 {
   gc->ReceiveFrame(aData, aLength);
 }
+
+void
+GonkCameraReceiveFrame(nsCameraControl* gc, GraphicBufferLocked* aBuffer)
+{
+  gc->ReceiveFrame(aBuffer);
+}

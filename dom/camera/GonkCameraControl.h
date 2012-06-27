@@ -11,10 +11,17 @@
 
 class nsCameraControl;
 
+namespace mozilla {
+namespace layers {
+class GraphicBufferLocked;
+}
+}
+
 /* camera driver callbacks */
 void GonkCameraReceiveImage(nsCameraControl* gc, PRUint8* aData, PRUint32 aLength);
 void GonkCameraAutoFocusComplete(nsCameraControl* gc, bool success);
 void GonkCameraReceiveFrame(nsCameraControl* gc, PRUint8* aData, PRUint32 aLength);
+void GonkCameraReceiveFrame(nsCameraControl* gc, mozilla::layers::GraphicBufferLocked* aBuffer);
 
 
 #endif // DOM_CAMERA_GONKCAMERACONTROL_H

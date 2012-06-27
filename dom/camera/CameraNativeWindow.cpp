@@ -12,7 +12,7 @@
 #define CNW_LOGE(...) {(void)printf_stderr(__VA_ARGS__);}
 
 using namespace android;
-
+using namespace mozilla::layers;
 
 CameraNativeWindow::CameraNativeWindow()
 {
@@ -22,6 +22,13 @@ CameraNativeWindow::CameraNativeWindow()
 CameraNativeWindow::~CameraNativeWindow()
 {
     freeAllBuffersLocked();
+}
+
+void CameraNativeWindow::abandon()
+{
+    Mutex::Autolock lock(mMutex);
+    freeAllBuffersLocked();
+    mDequeueCondition.signal();
 }
 
 void CameraNativeWindow::init()
@@ -285,11 +292,7 @@ int CameraNativeWindow::queueBuffer(ANativeWindowBuffer* buffer)
         timestamp = mTimestamp;
     }
 
-    //XXX:
-    //mSlots[buf].mBufferState = BufferSlot::QUEUED;
-    //Set the state to FREE as there are no operations on the queued buffer
-    //And, so that the buffer can be dequeued when needed.
-    mSlots[buf].mBufferState = BufferSlot::FREE;
+    mSlots[buf].mBufferState = BufferSlot::QUEUED;
     mSlots[buf].mTimestamp = timestamp;
     mFrameCounter++;
     mSlots[buf].mFrameNumber = mFrameCounter;
@@ -491,4 +494,51 @@ int CameraNativeWindow::setBuffersTimestamp(int64_t timestamp)
     Mutex::Autolock lock(mMutex);
     mTimestamp = timestamp;
     return OK;
+}
+
+already_AddRefed<GraphicBufferLocked>
+CameraNativeWindow::lockCurrentBuffer()
+{
+  Mutex::Autolock lock(mMutex);
+
+  int found = -1;
+  for (int i = 0; i < mBufferCount; i++) {
+    const int state = mSlots[i].mBufferState;
+    if (state == BufferSlot::QUEUED) {
+      if (found < 0 ||
+          mSlots[i].mFrameNumber < mSlots[found].mFrameNumber) {
+        found = i;
+      }
+    }
+  }
+
+  if (found < 0) {
+    return NULL;
+  }
+
+  mSlots[found].mBufferState = BufferSlot::RENDERING;
+
+  nsRefPtr<GraphicBufferLocked> ret =
+    new CameraGraphicBuffer(this, found, mSlots[found].mGraphicBuffer.get());
+  return ret.forget();
+}
+
+void
+CameraNativeWindow::freeBuffer(uint32_t aIndex)
+{
+  Mutex::Autolock lock(mMutex);
+
+  if (aIndex < 0 || aIndex >= mBufferCount) {
+    CNW_LOGE("cancelBuffer: slot index out of range [0, %d]: %d",
+             mBufferCount, aIndex);
+    return;
+  } else if (mSlots[aIndex].mBufferState != BufferSlot::RENDERING) {
+    printf_stderr("cancelBuffer: slot %d is not owned by the compositor (state=%d)",
+                  aIndex, mSlots[aIndex].mBufferState);
+    return;
+  }
+
+  mSlots[aIndex].mBufferState = BufferSlot::FREE;
+  mDequeueCondition.signal();
+  return;
 }
