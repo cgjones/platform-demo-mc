@@ -61,16 +61,51 @@ protected:
   };
 
   /**
+   * Maximum time for a touch on the screen and corresponding lift of the finger
+   * to be considered a tap.
+   */
+  static const long MAX_TAP_TIME;
+
+  /**
    * Attempts to handle the event as a pinch event. If it is not a pinch event,
    * then we simply tell the next consumer to consume the event instead.
    */
   nsEventStatus HandlePinchEvent(const nsTouchEvent& event);
+
+  /**
+   * Attempts to handle the event as a single tap event, which highlights links
+   * before opening them. In general, this will not attempt to block the touch
+   * event from being passed along to AsyncPanZoomController since APZC needs to
+   * know about touches ending (and we only know if a touch was a tap once it
+   * ends).
+   */
+  nsEventStatus HandleSingleTapUpEvent(const nsTouchEvent& event);
+
+  /**
+   * Attempts to handle a single tap confirmation. This is what will actually
+   * open links, etc. In general, this will not attempt to block the touch event
+   * from being passed along to AsyncPanZoomController since APZC needs to know
+   * about touches ending (and we only know if a touch was a tap once it ends).
+   */
+  nsEventStatus HandleSingleTapConfirmedEvent(const nsTouchEvent& event);
+
+  /**
+   * Attempts to handle a tap event cancellation. This happens when we think
+   * something was a tap but it actually wasn't. In general, this will not
+   * attempt to block the touch event from being passed along to
+   * AsyncPanZoomController since APZC needs to know about touches ending( and
+   * we only know if a touch was a tap once it ends).
+   */
+  nsEventStatus HandleTapCancel(const nsTouchEvent& event);
 
   nsRefPtr<AsyncPanZoomController> mAsyncPanZoomController;
   nsTArray<SingleTouchData> mTouches;
   GestureState mState;
 
   float mPreviousSpan;
+
+  // Stores the time a touch started, used for detecting a tap gesture.
+  PRUint64 mTouchStartTime;
 };
 
 }

@@ -113,6 +113,7 @@ nsEventStatus AsyncPanZoomController::HandleTapGestureEvent(const nsTapEvent& ev
   case NS_TAP_UP: return OnSingleTapUp(event);
   case NS_TAP_CONFIRMED: return OnSingleTapConfirmed(event);
   case NS_TAP_DOUBLE: return OnDoubleTap(event);
+  case NS_TAP_CANCEL: return OnCancelTap();
   }
   return nsEventStatus_eIgnore;
 }
@@ -164,7 +165,7 @@ nsEventStatus AsyncPanZoomController::OnTouchMove(const nsTouchEvent& event) {
       }
       mX.StartTouch(xPos);
       mY.StartTouch(yPos);
-      CancelTouch();
+      OnCancelTap();
       mState = PANNING;
       break;
     case PANNING:
@@ -181,7 +182,7 @@ nsEventStatus AsyncPanZoomController::OnTouchMove(const nsTouchEvent& event) {
 }
 
 nsEventStatus AsyncPanZoomController::OnTouchEnd(const nsTouchEvent& event) {
-  CancelTouch();
+  OnCancelTap();
 
   switch (mState) {
   case FLING:
@@ -216,7 +217,7 @@ nsEventStatus AsyncPanZoomController::OnTouchCancel(const nsTouchEvent& event) {
 }
 
 nsEventStatus AsyncPanZoomController::OnScaleBegin(const nsPinchEvent& event) {
-  CancelTouch();
+  OnCancelTap();
   mState = PINCHING;
   mLastZoomFocus = event.focusPoint;
 
@@ -366,6 +367,12 @@ nsEventStatus AsyncPanZoomController::OnDoubleTap(const nsTapEvent& event) {
   return nsEventStatus_eConsumeNoDefault;
 }
 
+nsEventStatus AsyncPanZoomController::OnCancelTap() {
+  mGeckoContentController->SendGestureEvent(NS_LITERAL_STRING("Gesture:Cancel"), nsIntPoint(0, 0));
+
+  return nsEventStatus_eConsumeNoDefault;
+}
+
 float AsyncPanZoomController::PanDistance(const nsTouchEvent& event) {
   SingleTouchData& touch = GetTouchFromEvent(event);
   nsIntPoint point = touch.GetPoint();
@@ -374,10 +381,6 @@ float AsyncPanZoomController::PanDistance(const nsTouchEvent& event) {
   mY.UpdateWithTouchAtDevicePoint(yPos, 0);
   return sqrt(mX.PanDistance() * mX.PanDistance() + mY.PanDistance() * mY.PanDistance())
          * mFrameMetrics.mResolution.width;
-}
-
-void AsyncPanZoomController::CancelTouch() {
-  mGeckoContentController->SendGestureEvent(NS_LITERAL_STRING("Gesture:Cancel"), nsIntPoint(0, 0));
 }
 
 const nsPoint AsyncPanZoomController::GetVelocityVector() {

@@ -264,7 +264,7 @@ protected:
    * user taps the screen over some clickable content but then pans down instead
    * of letting go.
    */
-  void CancelTouch();
+  nsEventStatus OnCancelTap();
 
   /**
    * Scrolls the viewport by an X,Y offset.

@@ -544,6 +544,7 @@ class nsHashKey;
 #define NS_TAP_UP                    (NS_TAP_EVENT_START+2)
 #define NS_TAP_CONFIRMED             (NS_TAP_EVENT_START+3)
 #define NS_TAP_DOUBLE                (NS_TAP_EVENT_START+4)
+#define NS_TAP_CANCEL                (NS_TAP_EVENT_START+5)
 
 /**
  * Return status for event processors, nsEventStatus, is defined in
