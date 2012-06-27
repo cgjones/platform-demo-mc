@@ -16,6 +16,7 @@
 #include "nsDisplayList.h"
 #include "AnimationCommon.h"
 #include "nsAnimationManager.h"
+#include "mozilla/Preferences.h"
 
 #if defined(MOZ_WIDGET_ANDROID)
 #include "AndroidBridge.h"
@@ -601,6 +602,18 @@ CompositorParent::TransformShadowTree()
     SetPageRect(metrics.mCSSContentRect);
   }
 
+  if (mAsyncPanZoomController) {
+    // If there's a fling animation happening, advance it by 1 frame.
+    mAsyncPanZoomController->DoFling();
+
+    // If there has been a layers update in the form of a pan or zoom, then
+    // signal it during synchronization.
+    if (mAsyncPanZoomController->GetLayersUpdated()) {
+      mLayersUpdated = true;
+      mAsyncPanZoomController->ResetLayersUpdated();
+    }
+  }
+
   // We synchronise the viewport information with Java after sending the above
   // notifications, so that Java can take these into account in its response.
   // Calculate the absolute display port to send to Java
@@ -613,33 +626,43 @@ CompositorParent::TransformShadowTree()
                    mScrollOffset, mXScale, mYScale);
   mLayersUpdated = false;
 
-  // Handle transformations for asynchronous panning and zooming. We determine the
-  // zoom used by Gecko from the transformation set on the root layer, and we
-  // determine the scroll offset used by Gecko from the frame metrics of the
-  // primary scrollable layer. We compare this to the desired zoom and scroll
-  // offset in the view transform we obtained from Java in order to compute the
-  // transformation we need to apply.
-  float tempScaleDiffX = rootScaleX * mXScale;
-  float tempScaleDiffY = rootScaleY * mYScale;
+  gfx3DMatrix treeTransform;
+  gfxPoint reverseViewTranslation;
 
-  nsIntPoint metricsScrollOffset(0, 0);
-  if (metrics.IsScrollable())
-    metricsScrollOffset = metrics.mViewportScrollOffset;
+  if (mAsyncPanZoomController) {
+    mAsyncPanZoomController->GetContentTransformForFrame(metrics,
+                                                         rootTransform,
+                                                         mWidgetSize,
+                                                         &treeTransform,
+                                                         &reverseViewTranslation);
+  } else {
+    // Handle transformations for asynchronous panning and zooming. We determine the
+    // zoom used by Gecko from the transformation set on the root layer, and we
+    // determine the scroll offset used by Gecko from the frame metrics of the
+    // primary scrollable layer. We compare this to the desired zoom and scroll
+    // offset in the view transform we obtained from Java in order to compute the
+    // transformation we need to apply.
+    float tempScaleDiffX = rootScaleX * mXScale;
+    float tempScaleDiffY = rootScaleY * mYScale;
 
-  nsIntPoint scrollCompensation(
-    (mScrollOffset.x / tempScaleDiffX - metricsScrollOffset.x) * mXScale,
-    (mScrollOffset.y / tempScaleDiffY - metricsScrollOffset.y) * mYScale);
-  ViewTransform treeTransform(-scrollCompensation, mXScale, mYScale);
-  shadow->SetShadowTransform(gfx3DMatrix(treeTransform) * currentTransform);
+    nsIntPoint scrollCompensation(
+      (mScrollOffset.x / tempScaleDiffX - metricsScrollOffset.x) * mXScale,
+      (mScrollOffset.y / tempScaleDiffY - metricsScrollOffset.y) * mYScale);
 
-  // Alter the scroll offset so that fixed position layers remain within
-  // the page area.
-  float offsetX = mScrollOffset.x / tempScaleDiffX;
-  float offsetY = mScrollOffset.y / tempScaleDiffY;
-  offsetX = NS_MAX((float)mContentRect.x, NS_MIN(offsetX, (float)(mContentRect.XMost() - mWidgetSize.width)));
-  offsetY = NS_MAX((float)mContentRect.y, NS_MIN(offsetY, (float)(mContentRect.YMost() - mWidgetSize.height)));
-  gfxPoint reverseViewTranslation(offsetX - metricsScrollOffset.x,
-                                  offsetY - metricsScrollOffset.y);
+    treeTransform = gfx3DMatrix(ViewTransform(-scrollCompensation, mXScale, mYScale));
+
+    float offsetX = mScrollOffset.x / tempScaleDiffX,
+          offsetY = mScrollOffset.y / tempScaleDiffY;
+
+    offsetX = NS_MAX((float)mContentRect.x,
+                     NS_MIN(offsetX, (float)(mContentRect.XMost() - mWidgetSize.width)));
+    offsetY = NS_MAX((float)mContentRect.y,
+                      NS_MIN(offsetY, (float)(mContentRect.YMost() - mWidgetSize.height)));
+    reverseViewTranslation = gfxPoint(offsetX - metricsScrollOffset.x,
+                                      offsetY - metricsScrollOffset.y);
+  }
+
+  shadow->SetShadowTransform(treeTransform * currentTransform);
 
   TranslateFixedLayers(layer, reverseViewTranslation);
 
@@ -653,6 +676,19 @@ void
 CompositorParent::SetFirstPaintViewport(const nsIntPoint& aOffset, float aZoom,
                                         const nsIntRect& aPageRect, const gfx::Rect& aCssPageRect)
 {
+  if (mAsyncPanZoomController) {
+    ReentrantMonitorAutoEnter monitor(mAsyncPanZoomController->GetReentrantMonitor());
+
+    FrameMetrics metrics = mAsyncPanZoomController->GetFrameMetrics();
+
+    metrics.mViewportScrollOffset = aOffset;
+    metrics.mResolution.width = metrics.mResolution.height = aZoom;
+    metrics.mContentRect = aPageRect;
+    metrics.mCSSContentRect = aCssPageRect;
+
+    mAsyncPanZoomController->SetFrameMetrics(metrics);
+  }
+
 #ifdef MOZ_WIDGET_ANDROID
   mozilla::AndroidBridge::Bridge()->SetFirstPaintViewport(aOffset, aZoom, aPageRect, aCssPageRect);
 #endif
@@ -661,6 +697,24 @@ CompositorParent::SetFirstPaintViewport(const nsIntPoint& aOffset, float aZoom,
 void
 CompositorParent::SetPageRect(const gfx::Rect& aCssPageRect)
 {
+  if (mAsyncPanZoomController) {
+    ReentrantMonitorAutoEnter monitor(mAsyncPanZoomController->GetReentrantMonitor());
+
+    FrameMetrics metrics = mAsyncPanZoomController->GetFrameMetrics();
+    metrics.mCSSContentRect = aCssPageRect;
+    gfx::Rect cssContentRect = metrics.mCSSContentRect;
+    float scale = metrics.mResolution.width;
+    cssContentRect.x *= scale;
+    cssContentRect.y *= scale;
+    cssContentRect.width *= scale;
+    cssContentRect.height *= scale;
+    metrics.mContentRect = nsIntRect(NS_lround(cssContentRect.x),
+                                     NS_lround(cssContentRect.y),
+                                     NS_lround(cssContentRect.width),
+                                     NS_lround(cssContentRect.height));
+    mAsyncPanZoomController->SetFrameMetrics(metrics);
+  }
+
 #ifdef MOZ_WIDGET_ANDROID
   mozilla::AndroidBridge::Bridge()->SetPageRect(aCssPageRect);
 #endif
@@ -671,9 +725,34 @@ CompositorParent::SyncViewportInfo(const nsIntRect& aDisplayPort,
                                    float aDisplayResolution, bool aLayersUpdated,
                                    nsIntPoint& aScrollOffset, float& aScaleX, float& aScaleY)
 {
+  if (mAsyncPanZoomController) {
+    ReentrantMonitorAutoEnter monitor(mAsyncPanZoomController->GetReentrantMonitor());
+
+    FrameMetrics metrics = mAsyncPanZoomController->GetFrameMetrics();
+
+    // Update our CompositorParent copy of the viewport data.
+    aScrollOffset = metrics.mViewportScrollOffset;
+    aScaleX = metrics.mResolution.width;
+    aScaleY = metrics.mResolution.height;
+
+    // Send back our data, which includes the displayport, resolution and whether
+    // or not the layers have been updated.
+    // Don't set the resolution on the metrics because it's not relevant data.
+    metrics.mDisplayPort = aDisplayPort;
+
+    mAsyncPanZoomController->SetFrameMetrics(metrics);
+  }
+
 #ifdef MOZ_WIDGET_ANDROID
-  mozilla::AndroidBridge::Bridge()->SyncViewportInfo(aDisplayPort, aDisplayResolution, aLayersUpdated,
-                                                     aScrollOffset, aScaleX, aScaleY);
+  if (mAsyncPanZoomController) {
+    mozilla::AndroidBridge::Bridge()->SetViewportInfo(aDisplayPort, aDisplayResolution, aLayersUpdated,
+                                                      aScrollOffset, aScaleX, aScaleY);
+    if (aLayersUpdated)
+        AndroidBridge::Bridge()->ForceRepaint();
+  } else {
+    mozilla::AndroidBridge::Bridge()->SyncViewportInfo(aDisplayPort, aDisplayResolution, aLayersUpdated,
+                                                       aScrollOffset, aScaleX, aScaleY);
+  }
 #endif
 }
 
@@ -742,6 +821,12 @@ CompositorParent::DeallocPLayers(PLayersParent* actor)
 {
   delete actor;
   return true;
+}
+
+void
+CompositorParent::SetAsyncPanZoomController(AsyncPanZoomController* aAsyncPanZoomController)
+{
+  mAsyncPanZoomController = aAsyncPanZoomController;
 }
 
 } // namespace layers

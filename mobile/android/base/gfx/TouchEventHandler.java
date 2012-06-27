@@ -9,6 +9,7 @@ import java.util.LinkedList;
 import java.util.Queue;
 import android.content.Context;
 import android.graphics.PointF;
+import android.graphics.Point;
 import android.os.SystemClock;
 import android.util.Log;
 import android.view.GestureDetector;
@@ -16,8 +17,11 @@ import android.view.MotionEvent;
 import android.view.View.OnTouchListener;
 import org.mozilla.gecko.ui.PanZoomController;
 import org.mozilla.gecko.ui.SimpleScaleGestureDetector;
+import org.mozilla.gecko.gfx.PointUtils;
+import org.mozilla.gecko.MotionEventWrapper;
 import org.mozilla.gecko.Tab;
 import org.mozilla.gecko.Tabs;
+import org.mozilla.gecko.GeckoAppShell;
 
 /**
  * This class handles incoming touch events from the user and sends them to
@@ -49,7 +53,10 @@ import org.mozilla.gecko.Tabs;
  * to respond to user actions a timely manner regardless of default-prevention,
  * and fix issues like bug 749384.
  */
-public final class TouchEventHandler implements Tabs.OnTabsChangedListener {
+public final class TouchEventHandler
+    extends GestureDetector.SimpleOnGestureListener
+    implements Tabs.OnTabsChangedListener,
+               SimpleScaleGestureDetector.SimpleScaleGestureListener {
     private static final String LOGTAG = "GeckoTouchEventHandler";
 
     // The time limit for listeners to respond with preventDefault on touchevents
@@ -60,6 +67,7 @@ public final class TouchEventHandler implements Tabs.OnTabsChangedListener {
     private final GestureDetector mGestureDetector;
     private final SimpleScaleGestureDetector mScaleGestureDetector;
     private final PanZoomController mPanZoomController;
+    private final LayerController mLayerController;
 
     // the queue of events that we are holding on to while waiting for a preventDefault
     // notification
@@ -124,79 +132,222 @@ public final class TouchEventHandler implements Tabs.OnTabsChangedListener {
     //   processed. (n is the absolute value of the balance.)
     private int mProcessingBalance;
 
+    private enum ScaleType {
+        SCALE_BEGIN(0),
+        SCALE_CHANGE(1),
+        SCALE_END(2);
+
+        private final int id;
+
+        ScaleType(int id) { this.id = id; }
+
+        public int getValue() { return id; }
+    }
+
+    private enum TapType {
+        LONG_PRESS(0),
+        TAP_UP(1),
+        TAP_CONFIRMED(2),
+        DOUBLE_TAP(3);
+
+        private final int id;
+
+        TapType(int id) { this.id = id; }
+
+        public int getValue() { return id; }
+    }
+
     TouchEventHandler(Context context, LayerView view, LayerController controller) {
         mView = view;
 
+        mGestureDetector = new GestureDetector(context, new SimpleGestureListener(this));
+        mScaleGestureDetector = new SimpleScaleGestureDetector(this);
         mEventQueue = new LinkedList<MotionEvent>();
-        mGestureDetector = new GestureDetector(context, controller.getGestureListener());
-        mScaleGestureDetector = new SimpleScaleGestureDetector(controller.getScaleGestureListener());
         mPanZoomController = controller.getPanZoomController();
         mListenerTimeoutProcessor = new ListenerTimeoutProcessor();
+        mLayerController = controller;
         mDispatchEvents = true;
 
-        mGestureDetector.setOnDoubleTapListener(controller.getDoubleTapListener());
+        mGestureDetector.setOnDoubleTapListener(this);
 
         Tabs.registerOnTabsChangedListener(this);
     }
 
+    @Override
+    public boolean onScaleBegin(SimpleScaleGestureDetector detector) {
+        Log.d(LOGTAG, "onScaleBegin");
+
+        if (!mLayerController.panZoomInGecko()) {
+            return mPanZoomController.onScaleBegin(detector);
+        }
+
+        GeckoAppShell.handleSimpleScaleGestureEvent(
+            ScaleType.SCALE_BEGIN.getValue(),
+            detector.getCurrentSpan(),
+            detector.getPreviousSpan(),
+            new Point(Math.round(detector.getFocusX()), Math.round(detector.getFocusY())),
+            detector.getEventTime()
+        );
+
+        return true;
+    }
+
+    @Override
+    public boolean onScale(SimpleScaleGestureDetector detector) {
+        Log.d(LOGTAG, "onScale");
+
+        if (!mLayerController.panZoomInGecko()) {
+            return mPanZoomController.onScale(detector);
+        }
+
+        GeckoAppShell.handleSimpleScaleGestureEvent(
+            ScaleType.SCALE_CHANGE.getValue(),
+            detector.getCurrentSpan(),
+            detector.getPreviousSpan(),
+            new Point(Math.round(detector.getFocusX()), Math.round(detector.getFocusY())),
+            detector.getEventTime()
+        );
+
+        return true;
+    }
+
+    @Override
+    public void onScaleEnd(SimpleScaleGestureDetector detector) {
+        Log.d(LOGTAG, "onScaleEnd");
+
+        if (!mLayerController.panZoomInGecko()) {
+            mPanZoomController.onScaleEnd(detector);
+            return;
+        }
+
+        GeckoAppShell.handleSimpleScaleGestureEvent(
+            ScaleType.SCALE_END.getValue(),
+            detector.getCurrentSpan(),
+            detector.getPreviousSpan(),
+            new Point(Math.round(detector.getFocusX()), Math.round(detector.getFocusY())),
+            detector.getEventTime()
+        );
+    }
+
+    @Override
+    public void onLongPress(MotionEvent motionEvent) {
+        Log.d(LOGTAG, "onLongPress");
+
+        if (!mLayerController.panZoomInGecko()) {
+            mPanZoomController.onLongPress(motionEvent);
+            return;
+        }
+
+        GeckoAppShell.handleTapGestureEvent(
+            TapType.LONG_PRESS.getValue(),
+            new Point(Math.round(motionEvent.getX(0)), Math.round(motionEvent.getY(0))),
+            motionEvent.getEventTime()
+        );
+    }
+
+    @Override
+    public boolean onSingleTapUp(MotionEvent motionEvent) {
+        Log.d(LOGTAG, "onSingleTapUp");
+
+        if (!mLayerController.panZoomInGecko()) {
+            return mPanZoomController.onSingleTapUp(motionEvent);
+        }
+
+        GeckoAppShell.handleTapGestureEvent(
+            TapType.TAP_UP.getValue(),
+            new Point(Math.round(motionEvent.getX(0)), Math.round(motionEvent.getY(0))),
+            motionEvent.getEventTime()
+        );
+        return true;
+    }
+
+    @Override
+    public boolean onSingleTapConfirmed(MotionEvent motionEvent) {
+       Log.d(LOGTAG, "onSingleTapConfirmed");
+
+        if (!mLayerController.panZoomInGecko()) {
+            return mPanZoomController.onSingleTapConfirmed(motionEvent);
+        }
+
+        GeckoAppShell.handleTapGestureEvent(
+            TapType.TAP_CONFIRMED.getValue(),
+            new Point(Math.round(motionEvent.getX(0)), Math.round(motionEvent.getY(0))),
+            motionEvent.getEventTime()
+        );
+        return true;
+    }
+
+    @Override
+    public boolean onDoubleTap(MotionEvent motionEvent) {
+        Log.d(LOGTAG, "onDoubleTap");
+
+        if (!mLayerController.panZoomInGecko()) {
+           return mPanZoomController.onDoubleTap(motionEvent);
+        }
+
+        GeckoAppShell.handleTapGestureEvent(
+            TapType.DOUBLE_TAP.getValue(),
+            new Point(Math.round(motionEvent.getX(0)), Math.round(motionEvent.getY(0))),
+            motionEvent.getEventTime()
+        );
+        return true;
+    }
+
     /* This function MUST be called on the UI thread */
     public boolean handleEvent(MotionEvent event) {
-        // if we don't have gecko listeners, just dispatch the event
-        // and be done with it, no extra work needed.
-        if (mOnTouchListener == null) {
+        if (mLayerController.panZoomInGecko()) {
             dispatchEvent(event);
-            return true;
-        }
-
-        // if this is a hover event just notify gecko, we don't have any interest in the java layer.
-        if (isHoverEvent(event)) {
-            mOnTouchListener.onTouch(mView, event);
-            return true;
-        }
-
-        if (isDownEvent(event)) {
-            // this is the start of a new block of events! whee!
-            mHoldInQueue = mWaitForTouchListeners;
-
-            // Set mDispatchEvents to true so that we are guaranteed to either queue these
-            // events or dispatch them. The only time we should not do either is once we've
-            // heard back from content to preventDefault this block.
-            mDispatchEvents = true;
-            if (mHoldInQueue) {
-                // if the new block we are starting is the current block (i.e. there are no
-                // other blocks waiting in the queue, then we should let the pan/zoom controller
-                // know we are waiting for the touch listeners to run
-                if (mEventQueue.isEmpty()) {
-                    mPanZoomController.waitingForTouchListeners(event);
-                }
-            } else {
-                // we're not going to be holding this block of events in the queue, but we need
-                // a marker of some sort so that the processEventBlock loop deals with the blocks
-                // in the right order as notifications come in. we use a single null event in
-                // the queue as a placeholder for a block of events that has already been dispatched.
-                mEventQueue.add(null);
+        } else {
+            // if this is a hover event just notify gecko, we don't have any interest in the java layer.
+            if (isHoverEvent(event)) {
+                mOnTouchListener.onTouch(mView, event);
+                return true;
             }
 
-            // set the timeout so that we dispatch these events and update mProcessingBalance
-            // if we don't get a default-prevented notification
-            mView.postDelayed(mListenerTimeoutProcessor, EVENT_LISTENER_TIMEOUT);
-        }
+            if (isDownEvent(event)) {
+                // this is the start of a new block of events! whee!
+                mHoldInQueue = mWaitForTouchListeners;
 
-        // if we need to hold the events, add it to the queue. if we need to dispatch
-        // it directly, do that. it is possible that both mHoldInQueue and mDispatchEvents
-        // are false, in which case we are processing a block of events that we know
-        // has been default-prevented. in that case we don't keep the events as we don't
-        // need them (but we still pass them to the gecko listener).
-        if (mHoldInQueue) {
-            mEventQueue.add(MotionEvent.obtain(event));
-        } else if (mDispatchEvents) {
-            dispatchEvent(event);
-        } else if (touchFinished(event)) {
-            mPanZoomController.preventedTouchFinished();
-        }
+                // Set mDispatchEvents to true so that we are guaranteed to either queue these
+                // events or dispatch them. The only time we should not do either is once we've
+                // heard back from content to preventDefault this block.
+                mDispatchEvents = true;
+                if (mHoldInQueue) {
+                    // if the new block we are starting is the current block (i.e. there are no
+                    // other blocks waiting in the queue, then we should let the pan/zoom controller
+                    // know we are waiting for the touch listeners to run
+                    if (mEventQueue.isEmpty()) {
+                        mPanZoomController.waitingForTouchListeners(event);
+                    }
+                } else {
+                    // we're not going to be holding this block of events in the queue, but we need
+                    // a marker of some sort so that the processEventBlock loop deals with the blocks
+                    // in the right order as notifications come in. we use a single null event in
+                    // the queue as a placeholder for a block of events that has already been dispatched.
+                    mEventQueue.add(null);
+                }
 
-        // notify gecko of the event
-        mOnTouchListener.onTouch(mView, event);
+                // set the timeout so that we dispatch these events and update mProcessingBalance
+                // if we don't get a default-prevented notification
+                mView.postDelayed(mListenerTimeoutProcessor, EVENT_LISTENER_TIMEOUT);
+            }
+
+            // if we need to hold the events, add it to the queue. if we need to dispatch
+            // it directly, do that. it is possible that both mHoldInQueue and mDispatchEvents
+            // are false, in which case we are processing a block of events that we know
+            // has been default-prevented. in that case we don't keep the events as we don't
+            // need them (but we still pass them to the gecko listener).
+            if (mHoldInQueue) {
+                mEventQueue.add(MotionEvent.obtain(event));
+            } else if (mDispatchEvents) {
+                dispatchEvent(event);
+            } else if (touchFinished(event)) {
+                mPanZoomController.preventedTouchFinished();
+            }
+
+            // notify gecko of the event
+            mOnTouchListener.onTouch(mView, event);
+        }
 
         return true;
     }
@@ -210,15 +361,17 @@ public final class TouchEventHandler implements Tabs.OnTabsChangedListener {
      * This function MUST be called on the UI thread.
      */
     public void handleEventListenerAction(boolean allowDefaultAction) {
-        if (mProcessingBalance > 0) {
-            // this event listener that triggered this took too long, and the corresponding
-            // ListenerTimeoutProcessor runnable already ran for the event in question. the
-            // block of events this is for has already been processed, so we don't need to
-            // do anything here.
-        } else {
-            processEventBlock(allowDefaultAction);
+        if (!mLayerController.panZoomInGecko()) {
+            if (mProcessingBalance > 0) {
+                // this event listener that triggered this took too long, and the corresponding
+                // ListenerTimeoutProcessor runnable already ran for the event in question. the
+                // block of events this is for has already been processed, so we don't need to
+                // do anything here.
+            } else {
+                processEventBlock(allowDefaultAction);
+            }
+            mProcessingBalance--;
         }
-        mProcessingBalance--;
     }
 
     /* This function MUST be called on the UI thread. */
@@ -250,6 +403,10 @@ public final class TouchEventHandler implements Tabs.OnTabsChangedListener {
      * Dispatch the event to the gesture detectors and the pan/zoom controller.
      */
     private void dispatchEvent(MotionEvent event) {
+        if (event == null) {
+            return;
+        }
+
         if (mGestureDetector.onTouchEvent(event)) {
             return;
         }
@@ -257,7 +414,12 @@ public final class TouchEventHandler implements Tabs.OnTabsChangedListener {
         if (mScaleGestureDetector.isInProgress()) {
             return;
         }
-        mPanZoomController.onTouchEvent(event);
+
+        if (mLayerController.panZoomInGecko()) {
+            GeckoAppShell.handleTouchEvent(new MotionEventWrapper(event));
+        } else {
+            mPanZoomController.onTouchEvent(event);
+        }
     }
 
     /**
@@ -324,14 +486,16 @@ public final class TouchEventHandler implements Tabs.OnTabsChangedListener {
     private class ListenerTimeoutProcessor implements Runnable {
         /* This MUST be run on the UI thread */
         public void run() {
-            if (mProcessingBalance < 0) {
-                // gecko already responded with default-prevented notification, and so
-                // the block of events this ListenerTimeoutProcessor corresponds to have
-                // already been removed from the queue.
-            } else {
-                processEventBlock(true);
+            if (!mLayerController.panZoomInGecko()) {
+                if (mProcessingBalance < 0) {
+                    // gecko already responded with default-prevented notification, and so
+                    // the block of events this ListenerTimeoutProcessor corresponds to have
+                    // already been removed from the queue.
+                } else {
+                    processEventBlock(true);
+                }
+                mProcessingBalance++;
             }
-            mProcessingBalance++;
         }
     }
 

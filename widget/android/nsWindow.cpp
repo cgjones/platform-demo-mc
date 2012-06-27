@@ -12,6 +12,8 @@
 #include "mozilla/unused.h"
 #include "mozilla/Preferences.h"
 #include "mozilla/layers/RenderTrace.h"
+#include "mozilla/layers/AsyncPanZoomController.h"
+#include "mozilla/layers/GeckoContentController.h"
 
 using mozilla::dom::ContentParent;
 using mozilla::dom::ContentChild;
@@ -2290,6 +2292,12 @@ nsWindow::SetCompositor(mozilla::layers::CompositorParent* aCompositorParent,
     sCompositorParent = aCompositorParent;
     sCompositorChild = aCompositorChild;
     sCompositorThread = aCompositorThread;
+
+    if (sCompositorParent && AndroidBridge::Bridge() && AndroidBridge::Bridge()->mAsyncPanZoomController) {
+        // Make the pan zoom controller and compositor parent aware of each other.
+        AndroidBridge::Bridge()->mAsyncPanZoomController->SetCompositorParent(sCompositorParent);
+        sCompositorParent->SetAsyncPanZoomController(AndroidBridge::Bridge()->mAsyncPanZoomController);
+    }
 }
 
 void

@@ -100,6 +100,7 @@ public class LayerView extends SurfaceView implements SurfaceHolder.Callback {
 
     /** The LayerRenderer calls this to indicate that the window has changed size. */
     public void setViewportSize(IntSize size) {
+        GeckoAppShell.updateViewport(size.width, size.height);
         mController.setViewportSize(new FloatSize(size));
     }
 
@@ -211,6 +212,10 @@ public class LayerView extends SurfaceView implements SurfaceHolder.Callback {
     /** Implementation of SurfaceHolder.Callback */
     public synchronized void surfaceChanged(SurfaceHolder holder, int format, int width,
                                             int height) {
+        if (GeckoApp.checkLaunchState(GeckoApp.LaunchState.GeckoRunning)) {
+            GeckoAppShell.updateViewport(width, height);
+        }
+
         mGLController.surfaceChanged(width, height);
 
         if (mListener != null) {

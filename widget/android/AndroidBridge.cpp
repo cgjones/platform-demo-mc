@@ -6,6 +6,10 @@
 #include "mozilla/Util.h"
 #include "mozilla/layers/CompositorChild.h"
 #include "mozilla/layers/CompositorParent.h"
+#include "mozilla/layers/AsyncPanZoomController.h"
+#include "mozilla/layers/GeckoContentController.h"
+
+#include "GeckoContentControllerAndroid.h"
 
 #include <android/log.h>
 #include <dlfcn.h>
@@ -28,6 +32,7 @@
 #include "nsPresContext.h"
 #include "nsIDocShell.h"
 #include "nsPIDOMWindow.h"
+#include "nsGUIEvent.h"
 #include "mozilla/dom/ScreenOrientation.h"
 #include "nsIDOMWindowUtils.h"
 #include "nsIDOMClientRect.h"
@@ -138,7 +143,7 @@ AndroidBridge::Init(JNIEnv *jEnv,
     jEnableBatteryNotifications = (jmethodID) jEnv->GetStaticMethodID(jGeckoAppShellClass, "enableBatteryNotifications", "()V");
     jDisableBatteryNotifications = (jmethodID) jEnv->GetStaticMethodID(jGeckoAppShellClass, "disableBatteryNotifications", "()V");
     jGetCurrentBatteryInformation = (jmethodID) jEnv->GetStaticMethodID(jGeckoAppShellClass, "getCurrentBatteryInformation", "()[D");
-    jNotifyPaintedRect = jEnv->GetStaticMethodID(jGeckoAppShellClass, "notifyPaintedRect", "(FFFF)V");
+    jNotifyPaintedRect = (jmethodID) jEnv->GetStaticMethodID(jGeckoAppShellClass, "notifyPaintedRect", "(FFFF)V");
 
     jHandleGeckoMessage = (jmethodID) jEnv->GetStaticMethodID(jGeckoAppShellClass, "handleGeckoMessage", "(Ljava/lang/String;)Ljava/lang/String;");
     jCheckUriVisited = (jmethodID) jEnv->GetStaticMethodID(jGeckoAppShellClass, "checkUriVisited", "(Ljava/lang/String;)V");
@@ -186,6 +191,8 @@ AndroidBridge::Init(JNIEnv *jEnv,
     jNotifyWakeLockChanged = (jmethodID) jEnv->GetStaticMethodID(jGeckoAppShellClass, "notifyWakeLockChanged", "(Ljava/lang/String;Ljava/lang/String;)V");
 
 #ifdef MOZ_JAVA_COMPOSITOR
+    jForceRepaint = (jmethodID) jEnv->GetStaticMethodID(jGeckoAppShellClass, "forceRepaint", "()V");
+
     jPumpMessageLoop = (jmethodID) jEnv->GetStaticMethodID(jGeckoAppShellClass, "pumpMessageLoop", "()V");
 
     jAddPluginView = jEnv->GetStaticMethodID(jGeckoAppShellClass, "addPluginView", "(Landroid/view/View;IIIIZ)V");
@@ -206,6 +213,8 @@ AndroidBridge::Init(JNIEnv *jEnv,
 #endif
 
     InitAndroidJavaWrappers(jEnv);
+
+    InitPanZoomController();
 
     // jEnv should NOT be cached here by anything -- the jEnv here
     // is not valid for the real gecko main thread, which is set
@@ -1091,6 +1100,164 @@ AndroidBridge::SetLayerClient(jobject obj)
     AndroidGeckoLayerClient *client = new AndroidGeckoLayerClient();
     client->Init(obj);
     mLayerClient = client;
+}
+
+void
+AndroidBridge::HandleTouchEvent(JNIEnv* env, jobject obj)
+{
+    ALOG_BRIDGE("AndroidBridge::HandleTouchEvent");
+
+    AndroidMotionEvent *ae = new AndroidMotionEvent();
+    ae->Init(env, obj);
+
+    int action = ae->Action() & AndroidMotionEvent::ACTION_MASK;
+    PRUint32 eventType;
+    switch (action) {
+        case AndroidMotionEvent::ACTION_POINTER_DOWN:
+            eventType = NS_TOUCH_START_POINTER;
+            break;
+        case AndroidMotionEvent::ACTION_DOWN:
+            eventType = NS_TOUCH_START;
+            break;
+        case AndroidMotionEvent::ACTION_MOVE:
+            eventType = NS_TOUCH_MOVE;
+            break;
+        case AndroidMotionEvent::ACTION_UP:
+        case AndroidMotionEvent::ACTION_POINTER_UP:
+            eventType = NS_TOUCH_END;
+            break;
+        case AndroidMotionEvent::ACTION_OUTSIDE:
+        case AndroidMotionEvent::ACTION_CANCEL:
+            eventType = NS_TOUCH_CANCEL;
+            break;
+        default:
+            // Assume any invalid/weird touches are an attempt to cancel it, for
+            // now.
+            eventType = NS_TOUCH_END;
+            break;
+    }
+
+    nsIntPoint targetPoint = nsIntPoint(0, 0);
+    if (ae->Points().Length() > 0) {
+      targetPoint = ae->Points()[0];
+    }
+
+    nsTouchEvent event(ae->PointerIndex(), true, eventType, nsnull);
+    event.time = ae->Time();
+    if (action == AndroidMotionEvent::ACTION_UP ||
+        action == AndroidMotionEvent::ACTION_POINTER_UP) {
+        event.touches.SetCapacity(1);
+        int pointerIndex = ae->PointerIndex();
+        event.touchData.AppendElement(
+            SingleTouchData(event.id,
+                            ae->Points()[pointerIndex],
+                            ae->PointRadii()[pointerIndex],
+                            ae->Orientations()[pointerIndex],
+                            ae->Pressures()[pointerIndex])
+        );
+    } else {
+        int count = ae->Count();
+        event.touches.SetCapacity(count);
+        for (int i = 0; i < count; i++) {
+            event.touchData.AppendElement(
+                SingleTouchData(event.id,
+                                ae->Points()[i],
+                                ae->PointRadii()[i],
+                                ae->Orientations()[i],
+                                ae->Pressures()[i])
+            );
+        }
+    }
+
+    if (mAsyncPanZoomController)
+        mAsyncPanZoomController->HandleInputEvent(event);
+}
+
+void
+AndroidBridge::HandleSimpleScaleGestureEvent(JNIEnv* env,
+                                             jint jType,
+                                             jfloat jCurrentSpan,
+                                             jfloat jPreviousSpan,
+                                             jobject jFocusPoint,
+                                             jlong jTime)
+{
+    ALOG_BRIDGE("AndroidBridge::HandleSimpleScaleGestureEvent");
+
+    PRUint32 eventType = 0;
+    switch (jType) {
+    case AndroidGeckoEvent::SCALE_BEGIN:
+        eventType = NS_PINCH_START;
+        break;
+    case AndroidGeckoEvent::SCALE_CHANGE:
+        eventType = NS_PINCH_SCALE;
+        break;
+    case AndroidGeckoEvent::SCALE_END:
+        eventType = NS_PINCH_END;
+        break;
+    }
+
+    nsPinchEvent event(true, eventType, nsnull);
+    event.currentSpan = jCurrentSpan;
+    event.previousSpan = jPreviousSpan;
+    AndroidPoint point(env, jFocusPoint);
+    event.focusPoint = nsIntPoint(point.X(), point.Y());
+    event.time = jTime;
+
+    if (mAsyncPanZoomController)
+        mAsyncPanZoomController->HandleInputEvent(event);
+}
+
+void
+AndroidBridge::HandleTapGestureEvent(JNIEnv* env,
+                                     jint jType,
+                                     jobject jPoint,
+                                     jlong jTime)
+{
+    ALOG_BRIDGE("AndroidBridge::HandleTapGestureEvent");
+
+    PRUint32 eventType = 0;
+    switch (jType) {
+    case AndroidGeckoEvent::LONG_PRESS:
+        eventType = NS_TAP_LONG;
+        break;
+    case AndroidGeckoEvent::SINGLE_TAP_UP:
+        eventType = NS_TAP_UP;
+        break;
+    case AndroidGeckoEvent::SINGLE_TAP_CONFIRMED:
+        eventType = NS_TAP_CONFIRMED;
+        break;
+    case AndroidGeckoEvent::DOUBLE_TAP:
+        eventType = NS_TAP_CONFIRMED;
+        break;
+    }
+
+    nsTapEvent event(true, eventType, nsnull);
+    AndroidPoint point(env, jPoint);
+    event.point = nsIntPoint(point.X(), point.Y());
+    event.time = jTime;
+
+    if (mAsyncPanZoomController)
+        mAsyncPanZoomController->HandleInputEvent(event);
+}
+
+void
+AndroidBridge::UpdateViewport(JNIEnv* env, jint jWidth, jint jHeight)
+{
+    ALOG_BRIDGE("AndroidBridge::UpdateViewport");
+
+    InitPanZoomController();
+    if (mAsyncPanZoomController)
+        mAsyncPanZoomController->UpdateViewport(jWidth, jHeight);
+}
+
+void
+AndroidBridge::InitPanZoomController()
+{
+    if (!mAsyncPanZoomController && Preferences::GetBool("ui.panzoom.gecko", false)) {
+        mAsyncPanZoomController = new mozilla::layers::AsyncPanZoomController(
+            new mozilla::layers::GeckoContentControllerAndroid()
+        );
+    }
 }
 
 void
@@ -2068,9 +2235,21 @@ AndroidBridge::SyncViewportInfo(const nsIntRect& aDisplayPort, float aDisplayRes
     client->SyncViewportInfo(aDisplayPort, aDisplayResolution, aLayersUpdated, aScrollOffset, aScaleX, aScaleY);
 }
 
+void
+AndroidBridge::SetViewportInfo(const nsIntRect& aDisplayPort, float aDisplayResolution, bool aLayersUpdated,
+                               const nsIntPoint& aScrollOffset, float aScaleX, float aScaleY)
+{
+    AndroidGeckoLayerClient *client = mLayerClient;
+    if (!client)
+        return;
+
+    client->SetViewportInfo(aDisplayPort, aDisplayResolution, aLayersUpdated, aScrollOffset, aScaleX, aScaleY);
+}
+
 AndroidBridge::AndroidBridge()
 : mLayerClient(NULL)
 {
+
 }
 
 AndroidBridge::~AndroidBridge()
@@ -2460,4 +2639,15 @@ AndroidBridge::NotifyPaintedRect(float top, float left, float bottom, float righ
 
     AutoLocalJNIFrame jniFrame(env, 0);
     env->CallStaticVoidMethod(AndroidBridge::Bridge()->mGeckoAppShellClass, AndroidBridge::Bridge()->jNotifyPaintedRect, top, left, bottom, right);
+}
+
+void
+AndroidBridge::ForceRepaint()
+{
+    JNIEnv* env = GetJNIForThread();      // called on the compositor thread
+    if (!env)
+        return;
+
+    AutoLocalJNIFrame jniFrame(env, 0);
+    env->CallStaticVoidMethod(AndroidBridge::Bridge()->mGeckoAppShellClass, AndroidBridge::Bridge()->jForceRepaint);
 }

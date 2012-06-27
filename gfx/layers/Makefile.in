@@ -110,6 +110,11 @@ EXPORTS_mozilla/layers =\
         ShadowLayersParent.h \
         ShadowLayersManager.h \
         RenderTrace.h \
+        AsyncPanZoomController.h \
+        GeckoContentController.h \
+        GestureEventListener.h \
+        Axis.h \
+        CompositeEvent.h \
         $(NULL)
 
 CPPSRCS += \
@@ -121,6 +126,11 @@ CPPSRCS += \
         ShadowLayersChild.cpp \
         ShadowLayerParent.cpp \
         ShadowLayersParent.cpp \
+        AsyncPanZoomController.cpp \
+        GeckoContentController.cpp \
+        GestureEventListener.cpp \
+        Axis.cpp \
+        CompositeEvent.cpp \
         $(NULL)
 
 ifdef MOZ_X11 #{
@@ -144,5 +154,9 @@ endif
 include $(topsrcdir)/config/rules.mk
 
 include $(topsrcdir)/ipc/chromium/chromium-config.mk
+
+LOCAL_INCLUDES += \
+        -I$(topsrcdir)/content/events/src \
+		$(NULL)
 
 CXXFLAGS += $(MOZ_CAIRO_CFLAGS) $(MOZ_PIXMAN_CFLAGS) $(TK_CFLAGS)

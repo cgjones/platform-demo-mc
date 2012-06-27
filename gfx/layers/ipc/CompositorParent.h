@@ -20,6 +20,7 @@
 #include "base/thread.h"
 #include "mozilla/Monitor.h"
 #include "ShadowLayersManager.h"
+#include "AsyncPanZoomController.h"
 
 class nsIWidget;
 
@@ -56,6 +57,8 @@ public:
   void ScheduleRenderOnCompositorThread();
   void SchedulePauseOnCompositorThread();
   void ScheduleResumeOnCompositorThread(int width, int height);
+
+  void SetAsyncPanZoomController(AsyncPanZoomController* aAsyncPanZoomController);
 
 protected:
   virtual PLayersParent* AllocPLayers(const LayersBackend& aBackendType, int* aMaxTextureSize);
@@ -107,6 +110,8 @@ private:
   nsIntRect mContentRect;
   nsIntSize mWidgetSize;
 
+  nsRefPtr<AsyncPanZoomController> mAsyncPanZoomController;
+
   // When this flag is set, the next composition will be the first for a
   // particular document (i.e. the document displayed on the screen will change).
   // This happens when loading a new page or switching tabs. We notify the
@@ -127,6 +132,8 @@ private:
   mozilla::Monitor mResumeCompositionMonitor;
 
   DISALLOW_EVIL_CONSTRUCTORS(CompositorParent);
+
+  friend class AsyncPanZoomController;
 };
 
 } // layers

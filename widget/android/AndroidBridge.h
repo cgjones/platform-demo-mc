@@ -60,6 +60,7 @@ struct SmsFilterData;
 
 namespace layers {
 class CompositorParent;
+class AsyncPanZoomController;
 } // namespace layers
 
 // The order and number of the members in this structure must correspond
@@ -159,6 +160,8 @@ public:
 
     static void NotifyPaintedRect(float top, float left, float bottom, float right);
 
+    static void ForceRepaint();
+
     void AcknowledgeEventSync();
 
     void EnableLocation(bool aEnable);
@@ -179,6 +182,18 @@ public:
 
     void SetSurfaceView(jobject jobj);
     AndroidGeckoSurfaceView& SurfaceView() { return mSurfaceView; }
+
+    void HandleTouchEvent(JNIEnv* env, jobject jobj);
+    void HandleSimpleScaleGestureEvent(JNIEnv* env, jint jType,
+                                       jfloat jCurrentSpan, jfloat jPreviousSpan,
+                                       jobject jFocusPoint, jlong jTime);
+    void HandleTapGestureEvent(JNIEnv* env, jint jType, jobject jPoint, jlong jTime);
+
+    /**
+     * Only called for geometry changes in the viewport, such as an orientation
+     * flip (which would swap the height and width of the screen.
+     */
+    void UpdateViewport(JNIEnv* env, jint jWidth, jint jHeight);
 
     bool GetHandlersForURL(const char *aURL, 
                              nsIMutableArray* handlersArray = nsnull,
@@ -334,6 +349,8 @@ public:
     void SetPageRect(const gfx::Rect& aCssPageRect);
     void SyncViewportInfo(const nsIntRect& aDisplayPort, float aDisplayResolution, bool aLayersUpdated,
                           nsIntPoint& aScrollOffset, float& aScaleX, float& aScaleY);
+    void SetViewportInfo(const nsIntRect& aDisplayPort, float aDisplayResolution, bool aLayersUpdated,
+                         const nsIntPoint& aScrollOffset, float aScaleX, float aScaleY);
 
     jobject CreateSurface();
     void DestroySurface(jobject surface);
@@ -357,6 +374,9 @@ public:
 
     void NotifyWakeLockChanged(const nsAString& topic, const nsAString& state);
 
+    // Cross-platform touch event handler.
+    nsRefPtr<layers::AsyncPanZoomController> mAsyncPanZoomController;
+
 protected:
     static AndroidBridge *sBridge;
 
@@ -379,6 +399,8 @@ protected:
     ~AndroidBridge();
 
     bool Init(JNIEnv *jEnv, jclass jGeckoApp);
+
+    void InitPanZoomController();
 
     bool mOpenedGraphicsLibraries;
     void OpenGraphicsLibraries();
@@ -457,6 +479,7 @@ protected:
 
     jmethodID jNotifyPaintedRect;
 
+    jmethodID jForceRepaint;
     jmethodID jNumberOfMessages;
     jmethodID jSendMessage;
     jmethodID jSaveSentMessage;

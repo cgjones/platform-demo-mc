@@ -33,6 +33,7 @@ CPPSRCS	= \
 	AndroidGraphicBuffer.cpp \
 	AndroidJNI.cpp \
 	AndroidMediaLayer.cpp \
+	GeckoContentControllerAndroid.cpp \
 	nsWindow.cpp \
 	nsLookAndFeel.cpp \
 	nsScreenManagerAndroid.cpp \
@@ -59,7 +60,7 @@ XPIDLSRCS	= \
 
 SHARED_LIBRARY_LIBS = ../xpwidgets/libxpwidgets_s.a
 
-EXPORTS = AndroidBridge.h AndroidJavaWrappers.h AndroidLayerViewWrapper.h
+EXPORTS = AndroidBridge.h AndroidJavaWrappers.h AndroidLayerViewWrapper.h GeckoContentControllerAndroid.h
 
 include $(topsrcdir)/config/rules.mk
 

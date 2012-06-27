@@ -69,6 +69,7 @@ FENNEC_JAVA_FILES = \
   LinkTextView.java \
   MenuItemActionBar.java \
   MenuItemDefault.java \
+  MotionEventWrapper.java \
   NSSBridge.java \
   PropertyAnimator.java \
   ProfileMigrator.java \
@@ -115,6 +116,7 @@ FENNEC_JAVA_FILES = \
   gfx/RectUtils.java \
   gfx/ScreenshotLayer.java \
   gfx/ScrollbarLayer.java \
+  gfx/SimpleGestureListener.java \
   gfx/SingleTileLayer.java \
   gfx/SurfaceTextureLayer.java \
   gfx/TextLayer.java \

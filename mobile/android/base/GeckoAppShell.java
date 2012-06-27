@@ -142,6 +142,10 @@ public class GeckoAppShell
     public static native void loadNSSLibsNative(String apkName, boolean shouldExtract);
     public static native void onChangeNetworkLinkStatus(String status);
     public static native Message getNextMessageFromQueue(MessageQueue queue);
+    public static native void handleTouchEvent(MotionEventWrapper event);
+    public static native void handleSimpleScaleGestureEvent(int type, float curSpan, float prevSpan, Point focusPoint, long time);
+    public static native void handleTapGestureEvent(int type, Point point, long time);
+    public static native void updateViewport(int width, int height);
 
     public static void registerGlobalExceptionHandler() {
         Thread.setDefaultUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
@@ -712,6 +716,15 @@ public class GeckoAppShell
     public static void returnIMEQueryResult(String result, int selectionStart, int selectionLength) {
         // This method may be called from JNI to report Gecko's current selection indexes, but
         // Native Fennec doesn't care because the Java code already knows the selection indexes.
+    }
+
+    // Interface for Gecko to inform Java that it has recomposited and that Java
+    // should paint the current buffer.
+    public static void forceRepaint() {
+        final LayerController layerController = GeckoApp.mAppContext.getLayerController();
+        layerController.notifyLayerClientOfGeometryChange();
+        layerController.getView().requestRender();
+        layerController.setForceRedraw();
     }
 
     static void onXreExit() {

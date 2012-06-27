@@ -44,6 +44,18 @@ jfieldID AndroidGeckoEvent::jCanBeMeteredField = 0;
 jfieldID AndroidGeckoEvent::jScreenOrientationField = 0;
 jfieldID AndroidGeckoEvent::jByteBufferField = 0;
 
+jclass AndroidMotionEvent::jMotionEventClass = 0;
+jfieldID AndroidMotionEvent::jActionField = 0;
+jfieldID AndroidMotionEvent::jTimeField = 0;
+jfieldID AndroidMotionEvent::jPoints = 0;
+jfieldID AndroidMotionEvent::jPointIndicies = 0;
+jfieldID AndroidMotionEvent::jPressures = 0;
+jfieldID AndroidMotionEvent::jPointRadii = 0;
+jfieldID AndroidMotionEvent::jOrientations = 0;
+jfieldID AndroidMotionEvent::jCountField = 0;
+jfieldID AndroidMotionEvent::jMetaStateField = 0;
+jfieldID AndroidMotionEvent::jPointerIndexField = 0;
+
 jclass AndroidPoint::jPointClass = 0;
 jfieldID AndroidPoint::jXField = 0;
 jfieldID AndroidPoint::jYField = 0;
@@ -67,6 +79,7 @@ jclass AndroidGeckoLayerClient::jGeckoLayerClientClass = 0;
 jmethodID AndroidGeckoLayerClient::jSetFirstPaintViewport = 0;
 jmethodID AndroidGeckoLayerClient::jSetPageRect = 0;
 jmethodID AndroidGeckoLayerClient::jSyncViewportInfoMethod = 0;
+jmethodID AndroidGeckoLayerClient::jSetViewportInfoMethod = 0;
 jmethodID AndroidGeckoLayerClient::jCreateFrameMethod = 0;
 jmethodID AndroidGeckoLayerClient::jActivateProgramMethod = 0;
 jmethodID AndroidGeckoLayerClient::jDeactivateProgramMethod = 0;
@@ -121,6 +134,51 @@ mozilla::InitAndroidJavaWrappers(JNIEnv *jEnv)
     AndroidLayerRendererFrame::InitLayerRendererFrameClass(jEnv);
     AndroidViewTransform::InitViewTransformClass(jEnv);
     AndroidGeckoSurfaceView::InitGeckoSurfaceViewClass(jEnv);
+    AndroidMotionEvent::InitMotionEventClass(jEnv);
+}
+
+void
+AndroidMotionEvent::InitMotionEventClass(JNIEnv *jEnv)
+{
+#ifdef MOZ_JAVA_COMPOSITOR
+    initInit();
+
+    jMotionEventClass = getClassGlobalRef("org/mozilla/gecko/MotionEventWrapper");
+
+    jActionField = getField("mAction", "I");
+    jTimeField = getField("mTime", "J");
+    jPoints = getField("mPoints", "[Landroid/graphics/Point;");
+    jPointIndicies = getField("mPointIndicies", "[I");
+    jOrientations = getField("mOrientations", "[F");
+    jPressures = getField("mPressures", "[F");
+    jPointRadii = getField("mPointRadii", "[Landroid/graphics/Point;");
+    jMetaStateField = getField("mMetaState", "I");
+    jCountField = getField("mCount", "I");
+    jPointerIndexField = getField("mPointerIndex", "I");
+#endif
+}
+
+void
+AndroidMotionEvent::Init(JNIEnv *jenv, jobject jobj)
+{
+    NS_ASSERTION(!wrapped_obj, "Init called on non-null wrapped_obj!");
+
+    wrapped_obj = jobj;
+
+    if (!jobj)
+        return;
+
+    mAction = jenv->GetIntField(jobj, jActionField);
+    mTime = jenv->GetLongField(jobj, jTimeField);
+    mMetaState = jenv->GetIntField(jobj, jMetaStateField);
+    mCount = jenv->GetIntField(jobj, jCountField);
+    mPointerIndex = jenv->GetIntField(jobj, jPointerIndexField);
+
+    ReadPointArray(mPointRadii, jenv, jPointRadii, mCount);
+    ReadFloatArray(mOrientations, jenv, jOrientations, mCount);
+    ReadFloatArray(mPressures, jenv, jPressures, mCount);
+    ReadPointArray(mPoints, jenv, jPoints, mCount);
+    ReadIntArray(mPointIndicies, jenv, jPointIndicies, mCount);
 }
 
 void
@@ -260,6 +318,7 @@ AndroidGeckoLayerClient::InitGeckoLayerClientClass(JNIEnv *jEnv)
     jSetPageRect = getMethod("setPageRect", "(FFFF)V");
     jSyncViewportInfoMethod = getMethod("syncViewportInfo",
                                         "(IIIIFZ)Lorg/mozilla/gecko/gfx/ViewTransform;");
+    jSetViewportInfoMethod = getMethod("setViewportInfo", "(IIIIFZIIF)V");
     jCreateFrameMethod = getMethod("createFrame", "()Lorg/mozilla/gecko/gfx/LayerRenderer$Frame;");
     jActivateProgramMethod = getMethod("activateProgram", "()V");
     jDeactivateProgramMethod = getMethod("deactivateProgram", "()V");
@@ -332,6 +391,50 @@ AndroidGeckoEvent::ReadIntArray(nsTArray<int> &aVals,
 
 void
 AndroidGeckoEvent::ReadFloatArray(nsTArray<float> &aVals,
+                                  JNIEnv *jenv,
+                                  jfieldID field,
+                                  PRUint32 count)
+{
+    jfloatArray jFloatArray = (jfloatArray)jenv->GetObjectField(wrapped_obj, field);
+    jfloat *vals = jenv->GetFloatArrayElements(jFloatArray, false);
+    for (PRInt32 i = 0; i < count; i++) {
+        aVals.AppendElement(vals[i]);
+    }
+    jenv->ReleaseFloatArrayElements(jFloatArray, vals, JNI_ABORT);
+}
+
+void
+AndroidMotionEvent::ReadPointArray(nsTArray<nsIntPoint> &points,
+                                  JNIEnv *jenv,
+                                  jfieldID field,
+                                  PRUint32 count)
+{
+    jobjectArray jObjArray = (jobjectArray)jenv->GetObjectField(wrapped_obj, field);
+    for (PRInt32 i = 0; i < count; i++) {
+        jobject jObj = jenv->GetObjectArrayElement(jObjArray, i);
+        AndroidPoint jpoint(jenv, jObj);
+
+        nsIntPoint p(jpoint.X(), jpoint.Y());
+        points.AppendElement(p);
+    }
+}
+
+void
+AndroidMotionEvent::ReadIntArray(nsTArray<int> &aVals,
+                                JNIEnv *jenv,
+                                jfieldID field,
+                                PRUint32 count)
+{
+    jintArray jIntArray = (jintArray)jenv->GetObjectField(wrapped_obj, field);
+    jint *vals = jenv->GetIntArrayElements(jIntArray, false);
+    for (PRInt32 i = 0; i < count; i++) {
+        aVals.AppendElement(vals[i]);
+    }
+    jenv->ReleaseIntArrayElements(jIntArray, vals, JNI_ABORT);
+}
+
+void
+AndroidMotionEvent::ReadFloatArray(nsTArray<float> &aVals,
                                   JNIEnv *jenv,
                                   jfieldID field,
                                   PRUint32 count)
@@ -711,6 +814,24 @@ AndroidGeckoLayerClient::SyncViewportInfo(const nsIntRect& aDisplayPort, float a
 
     aScrollOffset = nsIntPoint(viewTransform.GetX(env), viewTransform.GetY(env));
     aScaleX = aScaleY = viewTransform.GetScale(env);
+}
+
+void
+AndroidGeckoLayerClient::SetViewportInfo(const nsIntRect& aDisplayPort, float aDisplayResolution, bool aLayersUpdated,
+                                         const nsIntPoint& aScrollOffset, float aScaleX, float aScaleY)
+{
+    NS_ASSERTION(!isNull(), "SetViewportInfo called on null layer client!");
+    JNIEnv *env = GetJNIForThread();    // this is called on the compositor thread
+    if (!env)
+        return;
+
+    AutoLocalJNIFrame jniFrame(env, 0);
+    return env->CallVoidMethod(wrapped_obj, jSetViewportInfoMethod,
+                               aDisplayPort.x, aDisplayPort.y,
+                               aDisplayPort.width, aDisplayPort.height,
+                               aDisplayResolution, aLayersUpdated,
+                               aScrollOffset.x, aScrollOffset.y,
+                               aScaleX);
 }
 
 jobject

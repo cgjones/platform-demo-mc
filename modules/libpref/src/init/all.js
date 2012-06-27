@@ -3068,6 +3068,11 @@ pref("ui.panel.default_level_parent", true);
 
 pref("mousewheel.system_scroll_override_on_root_content.enabled", false);
 
+// Whether or not to handle panning and zooming logic in Gecko. Currently, the
+// native Fennec code is superior, but eventually we will want to pref this on
+// by default since it will be used for gonk.
+pref("ui.panzoom.gecko", false);
+
 # ANDROID
 #endif
 

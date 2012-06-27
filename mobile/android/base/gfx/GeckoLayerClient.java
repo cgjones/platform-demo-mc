@@ -32,6 +32,8 @@ public class GeckoLayerClient implements GeckoEventResponder,
                                          LayerView.Listener {
     private static final String LOGTAG = "GeckoLayerClient";
 
+    private static final String PREF_PANZOOM_GECKO = "ui.panzoom.gecko";
+
     private LayerController mLayerController;
     private LayerRenderer mLayerRenderer;
     private boolean mLayerRendererInitialized;
@@ -63,6 +65,9 @@ public class GeckoLayerClient implements GeckoEventResponder,
     /* Used as a temporary ViewTransform by syncViewportInfo */
     private ViewTransform mCurrentViewTransform;
 
+    /* Whether to do panning and zooming in Java or in Gecko. */
+    private boolean mPanZoomInGecko;
+
     public GeckoLayerClient(Context context) {
         // we can fill these in with dummy values because they are always written
         // to before being read
@@ -72,6 +77,7 @@ public class GeckoLayerClient implements GeckoEventResponder,
         mRecordDrawTimes = true;
         mDrawTimingQueue = new DrawTimingQueue();
         mCurrentViewTransform = new ViewTransform(0, 0, 1);
+        mPanZoomInGecko = false;
     }
 
     /** Attaches the root layer to the layer controller so that Gecko appears. */
@@ -96,9 +102,14 @@ public class GeckoLayerClient implements GeckoEventResponder,
         sendResizeEventIfNecessary(true);
 
         JSONArray prefs = new JSONArray();
+        prefs.put(PREF_PANZOOM_GECKO);
         DisplayPortCalculator.addPrefNames(prefs);
         PluginLayer.addPrefNames(prefs);
         GeckoAppShell.sendEventToGecko(GeckoEvent.createBroadcastEvent("Preferences:Get", prefs.toString()));
+    }
+
+    public boolean panZoomInGecko() {
+        return mPanZoomInGecko;
     }
 
     DisplayPortMetrics getDisplayPort() {
@@ -170,7 +181,9 @@ public class GeckoLayerClient implements GeckoEventResponder,
             mDrawTimingQueue.add(displayPort);
         }
 
-        GeckoAppShell.sendEventToGecko(GeckoEvent.createViewportEvent(clampedMetrics, displayPort));
+        if (!mPanZoomInGecko) {
+            GeckoAppShell.sendEventToGecko(GeckoEvent.createViewportEvent(clampedMetrics, displayPort));
+        }
     }
 
     /**
@@ -185,38 +198,40 @@ public class GeckoLayerClient implements GeckoEventResponder,
 
     /** Viewport message handler. */
     private void handleViewportMessage(JSONObject message, ViewportMessageType type) throws JSONException {
-        ViewportMetrics messageMetrics = new ViewportMetrics(message);
-        synchronized (mLayerController) {
-            final ViewportMetrics newMetrics;
-            ImmutableViewportMetrics oldMetrics = mLayerController.getViewportMetrics();
+        if (!mPanZoomInGecko) {
+            ViewportMetrics messageMetrics = new ViewportMetrics(message);
+            synchronized (mLayerController) {
+                final ViewportMetrics newMetrics;
+                ImmutableViewportMetrics oldMetrics = mLayerController.getViewportMetrics();
 
-            switch (type) {
-            default:
-            case UPDATE:
-                newMetrics = messageMetrics;
-                // Keep the old viewport size
-                newMetrics.setSize(oldMetrics.getSize());
-                mLayerController.abortPanZoomAnimation();
-                break;
-            case PAGE_SIZE:
-                // adjust the page dimensions to account for differences in zoom
-                // between the rendered content (which is what Gecko tells us)
-                // and our zoom level (which may have diverged).
-                float scaleFactor = oldMetrics.zoomFactor / messageMetrics.getZoomFactor();
-                newMetrics = new ViewportMetrics(oldMetrics);
-                newMetrics.setPageRect(RectUtils.scale(messageMetrics.getPageRect(), scaleFactor), messageMetrics.getCssPageRect());
-                break;
-            }
-
-            mLayerController.post(new Runnable() {
-                public void run() {
-                    mGeckoViewport = newMetrics;
+                switch (type) {
+                default:
+                case UPDATE:
+                    newMetrics = messageMetrics;
+                    // Keep the old viewport size
+                    newMetrics.setSize(oldMetrics.getSize());
+                    mLayerController.abortPanZoomAnimation();
+                    break;
+                case PAGE_SIZE:
+                    // adjust the page dimensions to account for differences in zoom
+                    // between the rendered content (which is what Gecko tells us)
+                    // and our zoom level (which may have diverged).
+                    float scaleFactor = oldMetrics.zoomFactor / messageMetrics.getZoomFactor();
+                    newMetrics = new ViewportMetrics(oldMetrics);
+                    newMetrics.setPageRect(RectUtils.scale(messageMetrics.getPageRect(), scaleFactor), messageMetrics.getCssPageRect());
+                    break;
                 }
-            });
-            mLayerController.setViewportMetrics(newMetrics);
-            mDisplayPort = DisplayPortCalculator.calculate(mLayerController.getViewportMetrics(), null);
+
+                mLayerController.post(new Runnable() {
+                    public void run() {
+                        mGeckoViewport = newMetrics;
+                    }
+                });
+                mLayerController.setViewportMetrics(newMetrics);
+                mDisplayPort = DisplayPortCalculator.calculate(mLayerController.getViewportMetrics(), null);
+            }
+            mReturnDisplayPort = mDisplayPort;
         }
-        mReturnDisplayPort = mDisplayPort;
     }
 
     /** Implementation of GeckoEventResponder/GeckoEventListener. */
@@ -239,11 +254,15 @@ public class GeckoLayerClient implements GeckoEventResponder,
                 for (int i = jsonPrefs.length() - 1; i >= 0; i--) {
                     JSONObject pref = jsonPrefs.getJSONObject(i);
                     String name = pref.getString("name");
-                    try {
-                        prefValues.put(name, pref.getInt("value"));
-                    } catch (JSONException je) {
-                        // the pref value couldn't be parsed as an int. drop this pref
-                        // and continue with the rest
+                    if (PREF_PANZOOM_GECKO.equals(name)) {
+                        mPanZoomInGecko = pref.getBoolean("value");
+                    } else {
+                        try {
+                            prefValues.put(name, pref.getInt("value"));
+                        } catch (JSONException je) {
+                            // the pref value couldn't be parsed as an int. drop this pref
+                            // and continue with the rest
+                        }
                     }
                 }
                 // check return value from setStrategy to make sure that this is the
@@ -407,6 +426,66 @@ public class GeckoLayerClient implements GeckoEventResponder,
 
         return mCurrentViewTransform;
     }
+
+    /** This function is invoked by Gecko via JNI; be careful when modifying signature.
+      * The compositor invokes this function on every frame to figure out what part of the
+      * page to display, and to inform Java of the current display port. Since it is called
+      * on every frame, it needs to be ultra-fast.
+      * It avoids taking any locks or allocating any objects. We keep around a
+      * mCurrentViewTransform so we don't need to allocate a new ViewTransform
+      * everytime we're called. NOTE: we might be able to return a ImmutableViewportMetrics
+      * which would avoid the copy into mCurrentViewTransform.
+      *
+      * NOTE: This is the new version of syncViewportInfo for panning and
+      * zooming in Gecko.
+      */
+    public void setViewportInfo(int x, int y, int width, int height, float resolution, boolean layersUpdated,
+                                 int offsetX, int offsetY, float scale) {
+        // getViewportMetrics is thread safe so we don't need to synchronize
+        // on mLayerController.
+        // We save the viewport metrics here, so we later use it later in
+        // createFrame (which will be called by nsWindow::DrawWindowUnderlay on
+        // the native side, by the compositor). The LayerController's viewport
+        // metrics can change between here and there, as it's accessed outside
+        // of the compositor thread.
+        mFrameMetrics = mLayerController.getViewportMetrics();
+
+        if (layersUpdated) {
+            synchronized (mLayerController) {
+                ViewportMetrics metrics = new ViewportMetrics(mFrameMetrics);
+                metrics.setOrigin(new PointF(offsetX, offsetY));
+                metrics.setViewport(new RectF(x, y, x + width, y + height));
+                metrics.setZoomFactor(scale);
+                mFrameMetrics = new ImmutableViewportMetrics(metrics);
+                mLayerController.setViewportMetrics(metrics);
+            }
+        }
+
+        mCurrentViewTransform.x = mFrameMetrics.viewportRectLeft;
+        mCurrentViewTransform.y = mFrameMetrics.viewportRectTop;
+        mCurrentViewTransform.scale = mFrameMetrics.zoomFactor;
+
+        mRootLayer.setPositionAndResolution(x, y, x + width, y + height, resolution);
+
+        if (layersUpdated && mRecordDrawTimes) {
+            // If we got a layers update, that means a draw finished. Check to see if the area drawn matches
+            // one of our requested displayports; if it does calculate the draw time and notify the
+            // DisplayPortCalculator
+            DisplayPortMetrics drawn = new DisplayPortMetrics(x, y, x + width, y + height, resolution);
+            long time = mDrawTimingQueue.findTimeFor(drawn);
+            if (time >= 0) {
+                long now = SystemClock.uptimeMillis();
+                time = now - time;
+                mRecordDrawTimes = DisplayPortCalculator.drawTimeUpdate(time, width * height);
+            }
+        }
+
+        if (layersUpdated && mDrawListener != null) {
+            /* Used by robocop for testing purposes */
+            mDrawListener.drawFinished();
+        }
+    }
+
 
     /** This function is invoked by Gecko via JNI; be careful when modifying signature. */
     public LayerRenderer.Frame createFrame() {

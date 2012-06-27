@@ -84,6 +84,48 @@ Java_org_mozilla_gecko_GeckoAppShell_setLayerClient(JNIEnv *jenv, jclass, jobjec
 }
 
 NS_EXPORT void JNICALL
+Java_org_mozilla_gecko_GeckoAppShell_handleTouchEvent(JNIEnv *jenv, jclass, jobject obj)
+{
+    AndroidBridge::Bridge()->HandleTouchEvent(jenv, jenv->NewGlobalRef(obj));
+}
+
+NS_EXPORT void JNICALL
+Java_org_mozilla_gecko_GeckoAppShell_handleSimpleScaleGestureEvent(JNIEnv *jenv,
+                                                                   jclass,
+                                                                   jint jType,
+                                                                   jfloat jCurrentSpan,
+                                                                   jfloat jPreviousSpan,
+                                                                   jobject jFocusPoint,
+                                                                   jlong jTime)
+{
+    AndroidBridge::Bridge()->HandleSimpleScaleGestureEvent(jenv,
+                                                           jType,
+                                                           jCurrentSpan,
+                                                           jPreviousSpan,
+                                                           jenv->NewGlobalRef(jFocusPoint),
+                                                           jTime);
+}
+
+NS_EXPORT void JNICALL
+Java_org_mozilla_gecko_GeckoAppShell_handleTapGestureEvent(JNIEnv *jenv,
+                                                           jclass,
+                                                           jint jType,
+                                                           jobject jPoint,
+                                                           jlong jTime)
+{
+    AndroidBridge::Bridge()->HandleTapGestureEvent(jenv,
+                                                   jType,
+                                                   jenv->NewGlobalRef(jPoint),
+                                                   jTime);
+}
+
+NS_EXPORT void JNICALL
+Java_org_mozilla_gecko_GeckoAppShell_updateViewport(JNIEnv *jenv, jclass, jint jWidth, jint jHeight)
+{
+    AndroidBridge::Bridge()->UpdateViewport(jenv, jWidth, jHeight);
+}
+
+NS_EXPORT void JNICALL
 Java_org_mozilla_gecko_GeckoAppShell_onLowMemory(JNIEnv *jenv, jclass jc)
 {
     if (nsAppShell::gAppShell) {

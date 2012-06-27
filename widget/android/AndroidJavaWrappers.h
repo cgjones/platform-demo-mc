@@ -15,6 +15,8 @@
 #include "nsString.h"
 #include "mozilla/gfx/Rect.h"
 
+#include "GeckoContentControllerAndroid.h"
+
 //#define FORCE_ALOG 1
 
 #ifndef ALOG
@@ -197,6 +199,8 @@ public:
     void SetPageRect(const gfx::Rect& aCssPageRect);
     void SyncViewportInfo(const nsIntRect& aDisplayPort, float aDisplayResolution, bool aLayersUpdated,
                           nsIntPoint& aScrollOffset, float& aScaleX, float& aScaleY);
+    void SetViewportInfo(const nsIntRect& aDisplayPort, float aDisplayResolution, bool aLayersUpdated,
+                         const nsIntPoint& aScrollOffset, float aScaleX, float aScaleY);
     bool CreateFrame(AutoLocalJNIFrame *jniFrame, AndroidLayerRendererFrame& aFrame);
     bool ActivateProgram(AutoLocalJNIFrame *jniFrame);
     bool DeactivateProgram(AutoLocalJNIFrame *jniFrame);
@@ -206,6 +210,7 @@ protected:
     static jmethodID jSetFirstPaintViewport;
     static jmethodID jSetPageRect;
     static jmethodID jSyncViewportInfoMethod;
+    static jmethodID jSetViewportInfoMethod;
     static jmethodID jCreateFrameMethod;
     static jmethodID jActivateProgramMethod;
     static jmethodID jDeactivateProgramMethod;
@@ -495,9 +500,11 @@ public:
     };
 };
 
-class AndroidMotionEvent
+class AndroidMotionEvent : public WrappedJavaObject
 {
 public:
+    static void InitMotionEventClass(JNIEnv *jEnv);
+
     enum {
         ACTION_MASK = 0xff,
         ACTION_DOWN = 0,
@@ -523,6 +530,58 @@ public:
         NUM_SAMPLE_DATA = 4,
         dummy_java_enum_list_end
     };
+
+    void ReadIntArray(nsTArray<int> &aVals,
+                      JNIEnv *jenv,
+                      jfieldID field,
+                      PRUint32 count);
+    void ReadFloatArray(nsTArray<float> &aVals,
+                        JNIEnv *jenv,
+                        jfieldID field,
+                        PRUint32 count);
+    void ReadPointArray(nsTArray<nsIntPoint> &mPoints,
+                        JNIEnv *jenv,
+                        jfieldID field,
+                        PRUint32 count);
+
+    void Init(JNIEnv *jenv, jobject jobj);
+
+    int Action() { return mAction; }
+    int Type() { return mType; }
+    int64_t Time() { return mTime; }
+    nsTArray<nsIntPoint> Points() { return mPoints; }
+    nsTArray<int> PointIndicies() { return mPointIndicies; }
+    nsTArray<float> Pressures() { return mPressures; }
+    nsTArray<float> Orientations() { return mOrientations; }
+    nsTArray<nsIntPoint> PointRadii() { return mPointRadii; }
+    int PointerIndex() { return mPointerIndex; }
+    int Count() { return mCount; }
+
+protected:
+    static jfieldID jActionField;
+    static jfieldID jTypeField;
+    static jfieldID jTimeField;
+    static jfieldID jPoints;
+    static jfieldID jPointIndicies;
+    static jfieldID jOrientations;
+    static jfieldID jPressures;
+    static jfieldID jPointRadii;
+    static jfieldID jMetaStateField;
+    static jfieldID jCountField;
+    static jfieldID jPointerIndexField;
+
+    static jclass jMotionEventClass;
+    int mAction;
+    int mType;
+    int64_t mTime;
+    nsTArray<nsIntPoint> mPoints;
+    nsTArray<nsIntPoint> mPointRadii;
+    nsTArray<int> mPointIndicies;
+    nsTArray<float> mOrientations;
+    nsTArray<float> mPressures;
+    int mOffset, mCount;
+    int mPointerIndex;
+    int mMetaState;
 };
 
 class AndroidLocation : public WrappedJavaObject
@@ -681,6 +740,8 @@ protected:
     static jfieldID jScreenOrientationField;
     static jfieldID jByteBufferField;
 
+    friend class mozilla::layers::GeckoContentControllerAndroid;
+
 public:
     enum {
         NATIVE_POKE = 0,
@@ -725,6 +786,19 @@ public:
         IME_SET_SELECTION = 5,
         IME_GET_SELECTION = 6,
         IME_ADD_RANGE = 7
+    };
+
+    enum {
+        SCALE_BEGIN = 0,
+        SCALE_CHANGE = 1,
+        SCALE_END = 2
+    };
+
+    enum {
+        LONG_PRESS = 0,
+        SINGLE_TAP_UP = 1,
+        SINGLE_TAP_CONFIRMED = 2,
+        DOUBLE_TAP = 3
     };
 };
 

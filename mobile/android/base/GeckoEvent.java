@@ -8,6 +8,7 @@ package org.mozilla.gecko;
 import org.mozilla.gecko.gfx.DisplayPortMetrics;
 import org.mozilla.gecko.gfx.IntSize;
 import org.mozilla.gecko.gfx.ViewportMetrics;
+import org.mozilla.gecko.gfx.LayerController;
 import android.os.*;
 import android.app.*;
 import android.view.*;
@@ -227,10 +228,19 @@ public class GeckoEvent {
 
     public void addMotionPoint(int index, int eventIndex, MotionEvent event) {
         try {
-            PointF geckoPoint = new PointF(event.getX(eventIndex), event.getY(eventIndex));
-            geckoPoint = GeckoApp.mAppContext.getLayerController().convertViewPointToLayerPoint(geckoPoint);
-    
-            mPoints[index] = new Point(Math.round(geckoPoint.x), Math.round(geckoPoint.y));
+            final LayerController layerController = GeckoApp.mAppContext.getLayerController();
+            // If we're doing the panning and zooming logic in Gecko, we don't
+            // actually know this data properly. This forces us to just send
+            // data directly and transform it in Gecko.
+            Point pointSentToGecko;
+            if (layerController.panZoomInGecko()) {
+                pointSentToGecko = new Point(Math.round(event.getX(eventIndex)), Math.round(event.getY(eventIndex)));
+            } else {
+                PointF geckoPoint = new PointF(event.getX(eventIndex), event.getY(eventIndex));
+                geckoPoint = layerController.convertViewPointToLayerPoint(geckoPoint);
+                pointSentToGecko = new Point(Math.round(geckoPoint.x), Math.round(geckoPoint.y));
+            }
+            mPoints[index] = pointSentToGecko;
             mPointIndicies[index] = event.getPointerId(eventIndex);
             // getToolMajor, getToolMinor and getOrientation are API Level 9 features
             if (Build.VERSION.SDK_INT >= 9) {

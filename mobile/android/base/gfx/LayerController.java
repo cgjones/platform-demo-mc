@@ -86,6 +86,10 @@ public class LayerController {
         mForceRedraw = true;
     }
 
+    public boolean panZoomInGecko() {
+        return mLayerClient.panZoomInGecko();
+    }
+
     public Layer getRoot()                        { return mRootLayer; }
     public LayerView getView()                    { return mView; }
     public Context getContext()                   { return mContext; }

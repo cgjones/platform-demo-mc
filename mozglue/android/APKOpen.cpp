@@ -293,6 +293,10 @@ SHELL_WRAPPER1(notifyGeckoOfEvent, jobject)
 SHELL_WRAPPER0(processNextNativeEvent)
 SHELL_WRAPPER1(setSurfaceView, jobject)
 SHELL_WRAPPER2(setLayerClient, jobject, jint)
+SHELL_WRAPPER1(handleTouchEvent, jobject)
+SHELL_WRAPPER5(handleSimpleScaleGestureEvent, jint, jfloat, jfloat, jobject, jlong)
+SHELL_WRAPPER3(handleTapGestureEvent, jint, jobject, jlong)
+SHELL_WRAPPER2(updateViewport, jint, jint)
 SHELL_WRAPPER0(onResume)
 SHELL_WRAPPER0(onLowMemory)
 SHELL_WRAPPER3(callObserver, jstring, jstring, jstring)
@@ -715,6 +719,10 @@ loadGeckoLibs(const char *apkName)
   GETFUNC(notifyGeckoOfEvent);
   GETFUNC(processNextNativeEvent);
   GETFUNC(setSurfaceView);
+  GETFUNC(handleTouchEvent);
+  GETFUNC(handleSimpleScaleGestureEvent);
+  GETFUNC(handleTapGestureEvent);
+  GETFUNC(updateViewport);
   GETFUNC(setLayerClient);
   GETFUNC(onResume);
   GETFUNC(onLowMemory);
