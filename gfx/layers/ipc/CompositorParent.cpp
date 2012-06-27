@@ -5,6 +5,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "CompositorParent.h"
+#include "AsyncPanZoomController.h"
 #include "RenderTrace.h"
 #include "ShadowLayersParent.h"
 #include "BasicLayers.h"
@@ -26,26 +27,6 @@
 using base::Thread;
 namespace mozilla {
 namespace layers {
-
-// Represents (affine) transforms that are calculated from a content view.
-struct ViewTransform {
-  ViewTransform(nsIntPoint aTranslation = nsIntPoint(0, 0), float aXScale = 1, float aYScale = 1)
-    : mTranslation(aTranslation)
-    , mXScale(aXScale)
-    , mYScale(aYScale)
-  {}
-
-  operator gfx3DMatrix() const
-  {
-    return
-      gfx3DMatrix::ScalingMatrix(mXScale, mYScale, 1) *
-      gfx3DMatrix::Translation(mTranslation.x, mTranslation.y, 0);
-  }
-
-  nsIntPoint mTranslation;
-  float mXScale;
-  float mYScale;
-};
 
 CompositorParent::CompositorParent(nsIWidget* aWidget, MessageLoop* aMsgLoop,
                                    PlatformThreadId aThreadID, bool aRenderToEGLSurface,
@@ -644,6 +625,10 @@ CompositorParent::TransformShadowTree()
     // transformation we need to apply.
     float tempScaleDiffX = rootScaleX * mXScale;
     float tempScaleDiffY = rootScaleY * mYScale;
+
+    nsIntPoint metricsScrollOffset(0, 0);
+    if (metrics.IsScrollable())
+      metricsScrollOffset = metrics.mViewportScrollOffset;
 
     nsIntPoint scrollCompensation(
       (mScrollOffset.x / tempScaleDiffX - metricsScrollOffset.x) * mXScale,
