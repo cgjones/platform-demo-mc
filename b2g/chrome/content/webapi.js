@@ -357,6 +357,7 @@ function dump(a) {
 const AsyncPanZoom = {
   init: function() {
     Services.obs.addObserver(this, "Viewport:Change", false);
+    Services.obs.addObserver(this, "Viewport:ScreenSize", false);
     Services.obs.addObserver(this, "Gesture:SingleTap", false);
     Services.obs.addObserver(this, "Gesture:CancelTouch", false);
   },
@@ -364,6 +365,12 @@ const AsyncPanZoom = {
   observe: function(aSubject, aTopic, aData) {
     dump("*************OBSERVE: " + aTopic);
     switch (aTopic) {
+      case 'Viewport:ScreenSize':
+        let newSize = JSON.parse(aData);
+        this.screenWidth = aData.x;
+        this.screenHeight = aData.y;
+        break;
+
       case 'Viewport:Change':
 
         let aViewport = JSON.parse(aData);
@@ -372,9 +379,9 @@ const AsyncPanZoom = {
         let y = aViewport.y / aViewport.zoom;
 
         // Set scroll position
-        let win = this.browser.contentWindow;
+        let win = content;
         win.QueryInterface(Ci.nsIInterfaceRequestor).getInterface(Ci.nsIDOMWindowUtils).setScrollPositionClampingScrollPortSize(
-            gScreenWidth / aViewport.zoom, gScreenHeight / aViewport.zoom);
+            this.screenWidth / aViewport.zoom, this.screenHeight / aViewport.zoom);
         win.scrollTo(x, y);
         this.userScrollPos.x = win.scrollX;
         this.userScrollPos.y = win.scrollY;
@@ -508,9 +515,9 @@ const AsyncPanZoom = {
     let y = aViewport.y / aViewport.zoom;
 
     // Set scroll position
-    let win = this.browser.contentWindow;
+    let win = content;
     win.QueryInterface(Ci.nsIInterfaceRequestor).getInterface(Ci.nsIDOMWindowUtils).setScrollPositionClampingScrollPortSize(
-        gScreenWidth / aViewport.zoom, gScreenHeight / aViewport.zoom);
+        this.screenWidth / aViewport.zoom, this.screenHeight / aViewport.zoom);
     win.scrollTo(x, y);
     this.userScrollPos.x = win.scrollX;
     this.userScrollPos.y = win.scrollY;
@@ -559,11 +566,11 @@ const AsyncPanZoom = {
     // displayport somewhat to make sure it gets through all the conversions gecko will do on it
     // without deforming too much. See https://bugzilla.mozilla.org/show_bug.cgi?id=737510#c10
     // for details on what these operations are.
-    let geckoScrollX = this.browser.contentWindow.scrollX;
-    let geckoScrollY = this.browser.contentWindow.scrollY;
+    let geckoScrollX = content.scrollX;
+    let geckoScrollY = content.scrollY;
     aDisplayPort = this._dirtiestHackEverToWorkAroundGeckoRounding(aDisplayPort, geckoScrollX, geckoScrollY);
 
-    cwu = this.browser.contentWindow.QueryInterface(Ci.nsIInterfaceRequestor).getInterface(Ci.nsIDOMWindowUtils);
+    cwu = content.QueryInterface(Ci.nsIInterfaceRequestor).getInterface(Ci.nsIDOMWindowUtils);
     cwu.setDisplayPortForElement((aDisplayPort.left / resolution) - geckoScrollX,
                                  (aDisplayPort.top / resolution) - geckoScrollY,
                                  (aDisplayPort.right - aDisplayPort.left) / resolution,
@@ -691,3 +698,5 @@ const AsyncPanZoom = {
 };
 
 AsyncPanZoom.init();
+
+setTimeout()

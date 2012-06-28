@@ -380,6 +380,8 @@ nsWindow::Resize(PRInt32 aX,
     if (aRepaint && gWindowToRedraw)
         gWindowToRedraw->Invalidate(sVirtualBounds);
 
+    mGestureEventListener->GetAsyncPanZoomController()->UpdateViewport(aWidth, aHeight);
+
     return NS_OK;
 }
 

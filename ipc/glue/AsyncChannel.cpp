@@ -672,14 +672,9 @@ AsyncChannel::ProcessLink::OnChannelOpened()
     }
     /*assert*/mTransport->Connect();
 
-
-
-    {
-        MonitorAutoLock lock(*mChan->mMonitor);
-        mChan->mChannelState = ChannelConnected;
-        mChan->mMonitor->Notify();
+    if (/* already have pid */1) {
+        OnChannelConnected(27);
     }
-
 }
 
 void

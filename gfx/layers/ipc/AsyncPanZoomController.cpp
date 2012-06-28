@@ -700,6 +700,8 @@ void AsyncPanZoomController::UpdateViewport(int width, int height) {
   FrameMetrics metrics = GetFrameMetrics();
   metrics.mViewport = nsIntRect(0, 0, width, height);
   SetFrameMetrics(metrics);
+
+  mGeckoContentController->SendGestureEvent(NS_LITERAL_STRING("Viewport:ScreenSize"), nsIntPoint(width, height));
 }
 
 }
