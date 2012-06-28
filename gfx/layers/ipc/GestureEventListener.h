@@ -69,8 +69,11 @@ protected:
   /**
    * Attempts to handle the event as a pinch event. If it is not a pinch event,
    * then we simply tell the next consumer to consume the event instead.
+   *
+   * "clearTouches" marks whether or not to terminate any pinch currently
+   * happening.
    */
-  nsEventStatus HandlePinchEvent(const nsTouchEvent& event);
+  nsEventStatus HandlePinchEvent(const nsTouchEvent& event, bool clearTouches);
 
   /**
    * Attempts to handle the event as a single tap event, which highlights links
