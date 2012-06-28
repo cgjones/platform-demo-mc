@@ -638,14 +638,45 @@ SampleAnimations(Layer* aLayer, TimeStamp aPoint, bool* aActiveAnimation)
 }
 
 void
+CompositorParent::ApplyAsyncPanZoom(Layer* aLayer)
+{
+  for (Layer* child = aLayer->GetFirstChild(); child;
+       child = child->GetNextSibling()) {
+    ApplyAsyncPanZoom(child);
+  }
+
+  ContainerLayer* container = aLayer->AsContainerLayer();
+  if (!container) {
+    return;
+  }
+
+  const FrameMetrics& metrics = container->GetFrameMetrics();
+  const gfx3DMatrix& transform = aLayer->GetTransform();
+
+  gfx3DMatrix treeTransform;
+  gfxPoint reverseViewTranslation;
+
+  if (metrics.IsScrollable() || true) {
+    mAsyncPanZoomController->GetContentTransformForFrame(metrics,
+                                                         transform,
+                                                         mWidgetSize,
+                                                         &treeTransform,
+                                                         &reverseViewTranslation);
+    ShadowLayer* shadow = aLayer->AsShadowLayer();
+    shadow->SetShadowTransform(transform * treeTransform);
+  }
+}
+
+void
 CompositorParent::TransformShadowTree()
 {
   Layer* layer = GetPrimaryScrollableLayer();
   ShadowLayer* shadow = layer->AsShadowLayer();
   ContainerLayer* container = layer->AsContainerLayer();
+  Layer* root = mLayerManager->GetRoot();
 
   const FrameMetrics& metrics = container->GetFrameMetrics();
-  const gfx3DMatrix& rootTransform = mLayerManager->GetRoot()->GetTransform();
+  const gfx3DMatrix& rootTransform = root->GetTransform();
   const gfx3DMatrix& currentTransform = layer->GetTransform();
 
   float rootScaleX = rootTransform.GetXScale();
@@ -664,6 +695,7 @@ CompositorParent::TransformShadowTree()
   }
 
   if (mAsyncPanZoomController) {
+    ApplyAsyncPanZoom(root);
     // If there's a fling animation happening, advance it by 1 frame.
     mAsyncPanZoomController->DoFling();
 
@@ -672,6 +704,7 @@ CompositorParent::TransformShadowTree()
     if (mAsyncPanZoomController->GetLayersUpdated()) {
       mLayersUpdated = true;
       mAsyncPanZoomController->ResetLayersUpdated();
+      ScheduleComposition();
     }
   }
 
@@ -690,6 +723,7 @@ CompositorParent::TransformShadowTree()
   gfx3DMatrix treeTransform;
   gfxPoint reverseViewTranslation;
 
+#ifdef MOZ_JAVA_COMPOSITOR
   if (mAsyncPanZoomController) {
     mAsyncPanZoomController->GetContentTransformForFrame(metrics,
                                                          rootTransform,
@@ -726,6 +760,7 @@ CompositorParent::TransformShadowTree()
     reverseViewTranslation = gfxPoint(offsetX - metricsScrollOffset.x,
                                       offsetY - metricsScrollOffset.y);
   }
+#endif
 
   shadow->SetShadowTransform(treeTransform * currentTransform);
 

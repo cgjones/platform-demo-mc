@@ -107,6 +107,8 @@ protected:
     // Call this function when the users activity is the direct cause of an
     // event (like a keypress or mouse click).
     void UserActivity();
+
+    static nsRefPtr<mozilla::layers::GestureEventListener> mGestureEventListener;
 };
 
 #endif /* nsWindow_h */

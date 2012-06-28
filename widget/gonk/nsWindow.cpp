@@ -11,6 +11,9 @@
 
 #include "mozilla/Hal.h"
 #include "mozilla/layers/CompositorParent.h"
+#include "mozilla/layers/AsyncPanZoomController.h"
+#include "mozilla/layers/GestureEventListener.h"
+#include "mozilla/layers/GeckoContentController.h"
 #include "mozilla/Preferences.h"
 #include "mozilla/FileUtils.h"
 #include "Framebuffer.h"
@@ -119,6 +122,8 @@ static void *frameBufferWatcher(void *) {
 }
 
 } // anonymous namespace
+
+nsRefPtr<mozilla::layers::GestureEventListener> nsWindow::mGestureEventListener;
 
 nsWindow::nsWindow()
 {
@@ -240,7 +245,18 @@ nsWindow::DispatchInputEvent(nsGUIEvent &aEvent)
 
     gFocusedWindow->UserActivity();
     aEvent.widget = gFocusedWindow;
-    return gFocusedWindow->mEventCallback(&aEvent);
+    nsEventStatus status = gFocusedWindow->mEventCallback(&aEvent);
+    if (status != nsEventStatus_eConsumeNoDefault) {
+        switch (aEvent.message) {
+        case NS_TOUCH_START:
+        case NS_TOUCH_MOVE:
+        case NS_TOUCH_END:
+        case NS_TOUCH_CANCEL:
+            mGestureEventListener->HandleTouchEvent((const nsTouchEvent&)(aEvent));
+            break;
+        }
+    }
+    return status;
 }
 
 NS_IMETHODIMP
@@ -444,6 +460,17 @@ NS_IMETHODIMP
 nsWindow::DispatchEvent(nsGUIEvent *aEvent, nsEventStatus &aStatus)
 {
     aStatus = (*mEventCallback)(aEvent);
+    // If content didn't handle it, send it to the pan zoom controller.
+    if (aStatus != nsEventStatus_eConsumeNoDefault) {
+        switch (aEvent->message) {
+        case NS_TOUCH_START:
+        case NS_TOUCH_MOVE:
+        case NS_TOUCH_END:
+        case NS_TOUCH_CANCEL:
+            aStatus = mGestureEventListener->HandleTouchEvent((const nsTouchEvent&)(*aEvent));
+            break;
+        }
+    }
     return NS_OK;
 }
 
@@ -503,6 +530,20 @@ nsWindow::GetLayerManager(PLayersChild* aShadowManager,
 
     if (sUsingOMTC) {
         CreateCompositor();
+
+        nsRefPtr<mozilla::layers::AsyncPanZoomController> asyncPanZoomController =
+            new mozilla::layers::AsyncPanZoomController(
+                new mozilla::layers::GeckoContentController()
+            );
+        mGestureEventListener = new mozilla::layers::GestureEventListener(asyncPanZoomController.get());
+        asyncPanZoomController.forget();
+
+        if (mCompositorParent) {
+            // Make the pan zoom controller and compositor parent aware of each other.
+            mGestureEventListener->GetAsyncPanZoomController()->SetCompositorParent(mCompositorParent);
+            mCompositorParent->SetAsyncPanZoomController(mGestureEventListener->GetAsyncPanZoomController());
+        }
+
         if (mLayerManager)
             return mLayerManager;
     }
