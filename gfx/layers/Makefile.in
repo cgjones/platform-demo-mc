@@ -115,6 +115,11 @@ EXPORTS_mozilla/layers =\
         GestureEventListener.h \
         Axis.h \
         CompositeEvent.h \
+        ImageBridgeChild.h \
+        ImageBridgeParent.h \
+        ImageContainerChild.h \
+        ImageContainerParent.h \
+        SharedImageUtils.h \
         $(NULL)
 
 CPPSRCS += \
@@ -131,6 +136,10 @@ CPPSRCS += \
         GestureEventListener.cpp \
         Axis.cpp \
         CompositeEvent.cpp \
+        ImageBridgeChild.cpp \
+        ImageBridgeParent.cpp \
+        ImageContainerChild.cpp \
+        ImageContainerParent.cpp \
         $(NULL)
 
 ifdef MOZ_X11 #{

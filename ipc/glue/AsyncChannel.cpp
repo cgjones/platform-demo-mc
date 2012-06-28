@@ -671,6 +671,15 @@ AsyncChannel::ProcessLink::OnChannelOpened()
         mChan->mChannelState = ChannelOpening;
     }
     /*assert*/mTransport->Connect();
+
+
+
+    {
+        MonitorAutoLock lock(*mChan->mMonitor);
+        mChan->mChannelState = ChannelConnected;
+        mChan->mMonitor->Notify();
+    }
+
 }
 
 void

@@ -15,11 +15,13 @@
 #include "RenderFrameParent.h"
 
 #include "gfx3DMatrix.h"
-#include "nsFrameLoader.h"
-#include "nsViewportFrame.h"
-#include "nsSubDocumentFrame.h"
-#include "nsIObserver.h"
+#include "mozilla/layers/CompositorParent.h"
 #include "nsContentUtils.h"
+#include "nsFrameLoader.h"
+#include "nsIObserver.h"
+#include "nsIWidget.h"
+#include "nsSubDocumentFrame.h"
+#include "nsViewportFrame.h"
 
 typedef nsContentView::ViewConfig ViewConfig;
 using namespace mozilla::layers;
@@ -490,7 +492,8 @@ RenderFrameParent::ContentViewScaleChanged(nsContentView* aView)
 }
 
 void
-RenderFrameParent::ShadowLayersUpdated(bool isFirstPaint)
+RenderFrameParent::ShadowLayersUpdated(ShadowLayersParent* aLayerTree,
+                                       bool isFirstPaint)
 {
   mFrameLoader->SetCurrentRemoteFrame(this);
 
@@ -519,6 +522,14 @@ RenderFrameParent::ShadowLayersUpdated(bool isFirstPaint)
   // shadow layers, things would just break if we did --- we have no
   // way to repaint shadow layers from this process.
   nsRect rect = nsRect(nsPoint(0, 0), docFrame->GetRect().Size());
+
+
+
+
+  printf_stderr("     (invalidating frame)\n");
+
+
+
   docFrame->InvalidateWithFlags(rect, nsIFrame::INVALIDATE_NO_THEBES_LAYERS);
 }
 
@@ -528,6 +539,13 @@ RenderFrameParent::BuildLayer(nsDisplayListBuilder* aBuilder,
                               LayerManager* aManager,
                               const nsIntRect& aVisibleRect)
 {
+
+
+
+  printf_stderr("[RenderFrameParent] Building layer\n");
+
+
+
   NS_ABORT_IF_FALSE(aFrame,
                     "makes no sense to have a shadow tree without a frame");
   NS_ABORT_IF_FALSE(!mContainer ||
@@ -543,6 +561,25 @@ RenderFrameParent::BuildLayer(nsDisplayListBuilder* aBuilder,
     // the NS_ABORT_IF_FALSE() above will flag it.  Returning NULL
     // here will just cause the shadow subtree not to be rendered.
     return nsnull;
+  }
+
+  int64_t id = GetLayerTreeId();
+  if (-1 != id) {
+    MOZ_ASSERT(!GetRootLayer());
+
+    nsRefPtr<RefLayer> layer = aManager->CreateRefLayer();
+    if (!layer) {
+      // Probably a temporary layer manager that doesn't know how to
+      // use ref layers.
+      return nsnull;
+    }
+    layer->SetReferentId(id);
+    layer->SetVisibleRegion(aVisibleRect);
+    nsIntPoint rootFrameOffset = GetRootFrameOffset(aFrame, aBuilder);
+    layer->SetTransform(
+      gfx3DMatrix::Translation(rootFrameOffset.x, rootFrameOffset.y, 0.0));
+
+    return layer.forget();
   }
 
   if (mContainer) {
@@ -609,25 +646,34 @@ RenderFrameParent::ActorDestroy(ActorDestroyReason why)
 }
 
 PLayersParent*
-RenderFrameParent::AllocPLayers(LayerManager::LayersBackend* aBackendType, int* aMaxTextureSize)
+RenderFrameParent::AllocPLayers(LayerManager::LayersBackend* aBackendType,
+                                int* aMaxTextureSize,
+                                int64_t* aId)
 {
+  *aBackendType = LayerManager::LAYERS_NONE;
+  *aMaxTextureSize = 0;
+  *aId = -1;
+
   if (!mFrameLoader || mFrameLoaderDestroyed) {
-    *aBackendType = LayerManager::LAYERS_NONE;
-    *aMaxTextureSize = 0;
     return nsnull;
   }
 
-  nsRefPtr<LayerManager> lm = 
-    nsContentUtils::LayerManagerForDocument(mFrameLoader->GetOwnerDoc());
+  nsIDocument* doc = mFrameLoader->GetOwnerDoc();
+  nsRefPtr<LayerManager> lm = nsContentUtils::LayerManagerForDocument(doc);
   ShadowLayerManager* slm = lm->AsShadowManager();
   if (!slm) {
-    *aBackendType = LayerManager::LAYERS_NONE;
-    *aMaxTextureSize = 0;
-     return nsnull;
+    return nsnull;
   }
   *aBackendType = lm->GetBackendType();
   *aMaxTextureSize = lm->GetMaxTextureSize();
-  return new ShadowLayersParent(slm, this);
+
+  if (CompositorParent::CompositorLoop()) {
+    // Our remote frame will push layers updates to the compositor,
+    // and we'll keep an indirect reference to that tree.
+    *aId = CompositorParent::AllocateLayerTreeId();
+  }
+
+  return new ShadowLayersParent(slm, this, *aId);
 }
 
 bool
@@ -679,6 +725,13 @@ RenderFrameParent::GetShadowLayers() const
                     "can only support at most 1 ShadowLayersParent");
   return (shadowParents.Length() == 1) ?
     static_cast<ShadowLayersParent*>(shadowParents[0]) : nsnull;
+}
+
+int64_t
+RenderFrameParent::GetLayerTreeId() const
+{
+  ShadowLayersParent* shadowLayers = GetShadowLayers();
+  return shadowLayers ? shadowLayers->GetId() : -1;
 }
 
 ContainerLayer*

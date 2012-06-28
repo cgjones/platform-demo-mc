@@ -10,6 +10,7 @@
 #include "ui/FramebufferNativeWindow.h"
 
 #include "mozilla/Hal.h"
+#include "mozilla/layers/CompositorParent.h"
 #include "mozilla/Preferences.h"
 #include "mozilla/FileUtils.h"
 #include "Framebuffer.h"
@@ -131,9 +132,11 @@ nsWindow::nsWindow()
             NS_RUNTIMEABORT("Failed to create framebufferWatcherThread, aborting...");
         }
 
-        sUsingOMTC = UseOffMainThreadCompositing();
+        gfxPlatform::InitOffMainThreadCompositing();
+        sUsingOMTC = !!CompositorParent::CompositorLoop();
 
         if (sUsingOMTC) {
+          printf_stderr("Using off-main-thread composition");
           sOMTCSurface = new gfxImageSurface(gfxIntSize(1, 1),
                                              gfxASurface::ImageFormatRGB24);
         }

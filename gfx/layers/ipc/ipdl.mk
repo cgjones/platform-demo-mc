@@ -7,4 +7,7 @@ IPDLSRCS = \
   PGrallocBuffer.ipdl \
   PLayer.ipdl \
   PLayers.ipdl \
+  PImageBridge.ipdl \
+  PImageContainer.ipdl \
+  LayersSurfaces.ipdlh \
   $(NULL)

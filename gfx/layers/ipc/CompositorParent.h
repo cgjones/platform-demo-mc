@@ -23,6 +23,10 @@
 
 class nsIWidget;
 
+namespace base {
+class Thread;
+}
+
 namespace mozilla {
 namespace layers {
 
@@ -54,8 +58,8 @@ class CompositorParent : public PCompositorParent,
 {
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(CompositorParent)
 public:
-  CompositorParent(nsIWidget* aWidget, MessageLoop* aMsgLoop,
-                   PlatformThreadId aThreadID, bool aRenderToEGLSurface = false,
+  CompositorParent(nsIWidget* aWidget,
+                   bool aRenderToEGLSurface = false,
                    int aSurfaceWidth = -1, int aSurfaceHeight = -1);
 
   virtual ~CompositorParent();
@@ -65,7 +69,8 @@ public:
   virtual bool RecvPause() MOZ_OVERRIDE;
   virtual bool RecvResume() MOZ_OVERRIDE;
 
-  virtual void ShadowLayersUpdated(bool isFirstPaint) MOZ_OVERRIDE;
+  virtual void ShadowLayersUpdated(ShadowLayersParent* aLayerTree,
+                                   bool isFirstPaint) MOZ_OVERRIDE;
   void Destroy();
 
   LayerManager* GetLayerManager() { return mLayerManager; }
@@ -78,14 +83,63 @@ public:
   void SchedulePauseOnCompositorThread();
   void ScheduleResumeOnCompositorThread(int width, int height);
 
+  virtual void ScheduleComposition();
+
   void SetAsyncPanZoomController(AsyncPanZoomController* aAsyncPanZoomController);
 
+  /** Runs on the "main thread". */
+  static int64_t AllocateLayerTreeId();
+
+  /** */
+  static PCompositorParent*
+  Create(Transport* aTransport, ProcessId aOtherProcess);
+
+  /**
+   * Creates a global map referencing each compositor by ID.
+   *
+   * This map is used by the ImageBirdge protocol to trigger
+   * compositions without having to keep references to the 
+   * compositor
+   */
+  static void CreateCompositorMap();
+  static void DestroyCompositorMap();
+  /**
+   * Returns a pointer to the compositor corrspoinding to the given ID. 
+   */
+  static CompositorParent* GetCompositor(PRUint32 id);
+  
+  /**
+   * Creates the compositor thread.
+   *
+   * All compositors live on the same thread.
+   * The thread is not lazily created on first access to avoid dealing with 
+   * thread safety. Therefore it's best to create and destroy the thread when
+   * we know we areb't using it (So creating/destroying along with gfxPlatform 
+   * looks like a good place).
+   */
+  static bool CreateThread();
+
+  /**
+   * Destroys the compositor thread.
+   *
+   * It is safe to call this fucntion more than once, although the second call
+   * will have no effect.
+   * This function is not thread-safe.
+   */
+  static void DestroyThread();
+
+  /**
+   * Returns the compositor thread's message loop.
+   *
+   * This message loop is used by CompositorParent and ImageBridgeParent.
+   */
+  static MessageLoop* CompositorLoop();
+
 protected:
-  virtual PLayersParent* AllocPLayers(const LayersBackend& aBackendType, int* aMaxTextureSize);
+  virtual PLayersParent* AllocPLayers(const LayersBackend& aBackendType, const int64_t& aId, int32_t* aMaxTextureSize);
   virtual bool DeallocPLayers(PLayersParent* aLayers);
   virtual void ScheduleTask(CancelableTask*, int);
   virtual void Composite();
-  virtual void ScheduleComposition();
   virtual void SetFirstPaintViewport(const nsIntPoint& aOffset, float aZoom, const nsIntRect& aPageRect, const gfx::Rect& aCssPageRect);
   virtual void SetPageRect(const gfx::Rect& aCssPageRect);
   virtual void SyncViewportInfo(const nsIntRect& aDisplayPort, float aDisplayResolution, bool aLayersUpdated,
@@ -93,13 +147,24 @@ protected:
   void SetEGLSurfaceSize(int width, int height);
 
 private:
+  CompositorParent();
+
   void PauseComposition();
   void ResumeComposition();
   void ResumeCompositionAndResize(int width, int height);
 
   void TransformShadowTree();
 
-  inline MessageLoop* CompositorLoop();
+  /**
+   * Add a compositor to the global compositor map.
+   */
+  static PRUint32 AddCompositor(CompositorParent* compositor);
+  /**
+   * Remove a compositor from the global compositor map.
+   */
+  static CompositorParent* RemoveCompositor(PRUint32 id);
+
+
   inline PlatformThreadId CompositorThreadID();
 
   // Platform specific functions
@@ -115,6 +180,8 @@ private:
    */
   void TranslateFixedLayers(Layer* aLayer, const gfxPoint& aTranslation);
 
+  //
+  nsRefPtr<CompositorParent> mSelfRef;
   nsRefPtr<LayerManager> mLayerManager;
   nsIWidget* mWidget;
   CancelableTask *mCurrentCompositeTask;
@@ -143,13 +210,13 @@ private:
   // after a layers update has it set. It is cleared after that first composition.
   bool mLayersUpdated;
 
-  MessageLoop* mCompositorLoop;
-  PlatformThreadId mThreadID;
   bool mRenderToEGLSurface;
   nsIntSize mEGLSurfaceSize;
 
   mozilla::Monitor mPauseCompositionMonitor;
   mozilla::Monitor mResumeCompositionMonitor;
+
+  PRUint32 mCompositorID;
 
   DISALLOW_EVIL_CONSTRUCTORS(CompositorParent);
 

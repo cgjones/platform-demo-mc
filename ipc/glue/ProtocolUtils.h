@@ -104,7 +104,7 @@ public:
 inline bool
 LoggingEnabled()
 {
-#if defined(DEBUG)
+#if 1 || defined(DEBUG)
     return !!PR_GetEnv("MOZ_IPC_MESSAGE_LOG");
 #else
     return false;

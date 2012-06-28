@@ -31,7 +31,9 @@ void VideoFrameContainer::SetCurrentFrame(const gfxIntSize& aIntrinsicSize,
   if (!lastPaintTime.IsNull() && !mPaintTarget.IsNull()) {
     mPaintDelay = lastPaintTime - mPaintTarget;
   }
+  
   mImageContainer->SetCurrentImage(aImage);
+  
   gfxIntSize newFrameSize = mImageContainer->GetCurrentSize();
   if (oldFrameSize != newFrameSize) {
     mImageSizeChanged = true;

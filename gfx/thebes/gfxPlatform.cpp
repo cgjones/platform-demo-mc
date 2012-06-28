@@ -6,7 +6,13 @@
 #ifdef MOZ_LOGGING
 #define FORCE_PR_LOG /* Allow logging in the release build */
 #endif
+
+#include "mozilla/layers/CompositorParent.h"
+#include "mozilla/layers/ImageBridgeChild.h"
+#include "mozilla/layers/ImageBridgeParent.h"
+ 
 #include "prlog.h"
+#include "prenv.h"
 
 #include "gfxPlatform.h"
 
@@ -60,6 +66,7 @@
 #include "nsIGfxInfo.h"
 
 using namespace mozilla;
+using namespace mozilla::layers;
 
 gfxPlatform *gPlatform = nsnull;
 static bool gEverInitialized = false;
@@ -227,6 +234,41 @@ gfxPlatform::GetPlatform()
     return gPlatform;
 }
 
+/*static*/void
+gfxPlatform::InitOffMainThreadCompositing()
+{
+  static bool inited;
+  if (inited) {
+    return;
+  }
+  inited = true;
+
+  bool useOffMainThreadCompositing = false;
+#ifdef MOZ_X11
+  // On X11 platforms only use OMTC if firefox was initalized with thread-safe 
+  // X11 (else it would crash).
+  useOffMainThreadCompositing = (PR_GetEnv("MOZ_USE_OMTC") != NULL);
+#else
+  useOffMainThreadCompositing = Preferences::GetBool(
+    "layers.offmainthreadcomposition.enabled", 
+    false);
+#endif
+
+  printf_stderr("Are we using off-main-thread compositing? %s\n",
+                useOffMainThreadCompositing ? "yes" : "NO");
+
+  if (useOffMainThreadCompositing) {
+    CompositorParent::CreateCompositorMap();
+    CompositorParent::CreateThread();
+
+    ImageBridgeChild::Create(new base::Thread("ImageBridgeChild"));
+    ImageBridgeChild* imageBridgeChild = ImageBridgeChild::GetSingleton();
+    ImageBridgeParent* imageBridgeParent = new ImageBridgeParent(
+      CompositorParent::CompositorLoop());
+    imageBridgeChild->ConnectAsync(imageBridgeParent);
+  }
+}
+
 void
 gfxPlatform::Init()
 {
@@ -243,6 +285,7 @@ gfxPlatform::Init()
     sCmapDataLog = PR_NewLogModule("cmapdata");;
 #endif
 
+    InitOffMainThreadCompositing();
 
     /* Initialize the GfxInfo service.
      * Note: we can't call functions on GfxInfo that depend
@@ -360,6 +403,16 @@ gfxPlatform::Shutdown()
     mozilla::gl::GLContextProviderEGL::Shutdown();
 #endif
 
+    mozilla::layers::ImageBridgeChild* bridge = 
+        ImageBridgeChild::GetSingleton();
+    if (bridge) {
+        base::Thread* imageBridgeThread = bridge->GetThread();
+        ImageBridgeChild::Destroy();
+        delete imageBridgeThread;
+    }
+
+    CompositorParent::DestroyThread();
+    CompositorParent::DestroyCompositorMap();
     delete gPlatform;
     gPlatform = nsnull;
 }

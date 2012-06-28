@@ -28,8 +28,19 @@ sync protocol PRenderFrame
     manages PLayers;
 
 parent:
+    /**
+     * Shadow layer trees can be grafted into the parent's in one of
+     * two ways
+     *  - direct shadow tree: updates are sent to parent
+     *  - indirect: the parent holds a reference (ID) to a shadow tree
+     *    that's managed by the compositor.  During composition, the
+     *    shadow tree is looked up and grafted appropriately
+     *
+     * |id| is set to -1 in the "direct" case, and to a whole number
+     * in the "indirect" case.
+     */
     sync PLayers()
-      returns (LayersBackend backend, int maxTextureSize);
+      returns (LayersBackend backend, int32_t maxTextureSize, int64_t id);
 
     async __delete__();
 

@@ -7,7 +7,9 @@
 #include "mozilla/ipc/CrossProcessMutex.h"
 #include "ImageLayers.h"
 #include "gfxImageSurface.h"
+#include "gfxSharedImageSurface.h"
 #include "yuv_convert.h"
+#include "mozilla/layers/ImageContainerChild.h"
 
 #ifdef XP_MACOSX
 #include "nsCoreAnimationSupport.h"
@@ -81,7 +83,10 @@ BufferRecycleBin::GetBuffer(PRUint32 aSize)
 
 ImageContainer::~ImageContainer()
 {
-}
+  if (mImageContainerChild) {
+    mImageContainerChild->Destroy(); 
+  }
+ }
 
 already_AddRefed<Image>
 ImageContainer::CreateImage(const Image::Format *aFormats,
@@ -96,6 +101,10 @@ ImageContainer::SetCurrentImage(Image *aImage)
 {
   ReentrantMonitorAutoEnter mon(mReentrantMonitor);
 
+  if (mImageContainerChild) {
+    mImageContainerChild->SendImageAsync(this, aImage);
+  }
+  
   if (mRemoteData) {
     NS_ASSERTION(mRemoteDataMutex, "Should have remote data mutex when having remote data!");
     mRemoteDataMutex->Lock();

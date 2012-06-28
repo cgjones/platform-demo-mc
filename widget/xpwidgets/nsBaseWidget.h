@@ -99,6 +99,7 @@ public:
   virtual nsDeviceContext* GetDeviceContext();
   virtual LayerManager*   GetLayerManager(PLayersChild* aShadowManager = nsnull,
                                           LayersBackend aBackendHint = LayerManager::LAYERS_NONE,
+                                          int64_t aId = -1,
                                           LayerManagerPersistence aPersistence = LAYER_MANAGER_CURRENT,
                                           bool* aAllowRetaining = nsnull);
 
@@ -210,7 +211,6 @@ public:
 
   nsWindowType            GetWindowType() { return mWindowType; }
 
-  virtual bool            UseOffMainThreadCompositing();
 protected:
 
   virtual void            ResolveIconName(const nsAString &aIconName,
@@ -296,7 +296,6 @@ protected:
   nsRefPtr<LayerManager> mBasicLayerManager;
   nsRefPtr<CompositorChild> mCompositorChild;
   nsRefPtr<CompositorParent> mCompositorParent;
-  Thread*           mCompositorThread;
   nscolor           mBackground;
   nscolor           mForeground;
   nsCursor          mCursor;
@@ -319,6 +318,7 @@ protected:
   // the last rolled up popup. Only set this when an nsAutoRollup is in scope,
   // so it can be cleared automatically.
   static nsIContent* mLastRollup;
+  static Thread*     mCompositorThread;
 
 #ifdef DEBUG
 protected:

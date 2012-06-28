@@ -53,7 +53,8 @@ public:
 
   void ContentViewScaleChanged(nsContentView* aView);
 
-  virtual void ShadowLayersUpdated(bool isFirstPaint) MOZ_OVERRIDE;
+  virtual void ShadowLayersUpdated(ShadowLayersParent* aLayerTree,
+                                   bool isFirstPaint) MOZ_OVERRIDE;
 
   NS_IMETHOD BuildDisplayList(nsDisplayListBuilder* aBuilder,
                               nsSubDocumentFrame* aFrame,
@@ -72,14 +73,14 @@ public:
 protected:
   NS_OVERRIDE void ActorDestroy(ActorDestroyReason why);
 
-  NS_OVERRIDE virtual PLayersParent* AllocPLayers(LayerManager::LayersBackend* aBackendType,
-                                                  int* aMaxTextureSize);
+  NS_OVERRIDE virtual PLayersParent* AllocPLayers(LayerManager::LayersBackend* aBackendType, int* aMaxTextureSize, int64_t* boo);
   NS_OVERRIDE virtual bool DeallocPLayers(PLayersParent* aLayers);
 
 private:
   void BuildViewMap();
 
   ShadowLayersParent* GetShadowLayers() const;
+  int64_t GetLayerTreeId() const;
   ContainerLayer* GetRootLayer() const;
 
   nsRefPtr<nsFrameLoader> mFrameLoader;
