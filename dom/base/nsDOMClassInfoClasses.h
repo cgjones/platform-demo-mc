@@ -533,6 +533,12 @@ DOMCI_CLASS(BluetoothManager)
 DOMCI_CLASS(BluetoothAdapter)
 #endif
 
+#ifdef MOZ_B2G_CAMERA
+DOMCI_CLASS(CameraManager)
+DOMCI_CLASS(CameraControl)
+DOMCI_CLASS(CameraCapabilities)
+#endif
+
 DOMCI_CLASS(DOMError)
 DOMCI_CLASS(DOMRequest)
 DOMCI_CLASS(OpenWindowEventDetail)

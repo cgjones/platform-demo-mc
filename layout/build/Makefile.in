@@ -119,6 +119,10 @@ ifdef MOZ_B2G_BT #{
 SHARED_LIBRARY_LIBS	+= $(DEPTH)/dom/bluetooth/$(LIB_PREFIX)dombluetooth_s.$(LIB_SUFFIX)
 endif #}
 
+ifdef MOZ_B2G_CAMERA #{
+SHARED_LIBRARY_LIBS	+= $(DEPTH)/dom/camera/$(LIB_PREFIX)domcamera_s.$(LIB_SUFFIX)
+endif #}
+
 ifdef MOZ_B2G_RIL #{
 SHARED_LIBRARY_LIBS	+= \
   $(DEPTH)/dom/system/gonk/$(LIB_PREFIX)domsystemgonk_s.$(LIB_SUFFIX) \
@@ -266,6 +270,10 @@ endif #}
 
 ifdef MOZ_B2G_BT #{
 LOCAL_INCLUDES	+= -I$(topsrcdir)/dom/bluetooth
+endif #}
+
+ifdef MOZ_B2G_CAMERA #{
+LOCAL_INCLUDES	+= -I$(topsrcdir)/dom/camera
 endif #}
 
 DEFINES += -D_IMPL_NS_LAYOUT
