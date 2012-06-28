@@ -10,6 +10,7 @@
 #include "mozilla/layers/PLayersChild.h"
 #include "mozilla/layers/ShadowLayers.h"
 #include "mozilla/unused.h"
+#include "nsXULAppAPI.h"
 
 #include "ShadowLayerUtilsGralloc.h"
 
@@ -66,7 +67,14 @@ ParamTraits<MagicGrallocBufferHandle>::Read(const Message* aMsg,
     if (!aMsg->ReadFileDescriptor(aIter, &fd)) {
       return false;
     }
-    fds[n] = fd.fd;
+    // If the GraphicBuffer was shared cross-process, SCM_RIGHTS does
+    // the right thing and dup's the fd.  If it's shared cross-thread,
+    // SCM_RIGHTS doesn't dup the fd.  That's surprising, but we just
+    // deal with it here.  NB: only the "default" (master) process can
+    // alloc gralloc buffers.
+    bool sameProcess = (XRE_GetProcessType() == GeckoProcessType_Default);
+    int dupFd = sameProcess ? dup(fd.fd) : fd.fd;
+    fds[n] = dupFd;
   }
 
   sp<GraphicBuffer> buffer(new GraphicBuffer());
