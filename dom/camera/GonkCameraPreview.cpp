@@ -6,6 +6,8 @@
 #include "GonkCameraHwMgr.h"
 #include "CameraPreview.h"
 
+#define YUV_CONVERT_INPLACE   0
+
 #define DOM_CAMERA_LOG_LEVEL  3
 #include "CameraCommon.h"
 
@@ -124,6 +126,7 @@ CameraPreview::ReceiveFrame(PRUint8 *aData, PRUint32 aLength)
   PlanarYCbCrImage *videoImage = static_cast<PlanarYCbCrImage*>(image.get());
 
   if (!mIs420p) {
+#if YUV_CONVERT_INPLACE
     uint8_t* y = aData;
     uint32_t yN = mWidth * mHeight;
     uint32_t uvN = yN / 4;
@@ -167,6 +170,29 @@ CameraPreview::ReceiveFrame(PRUint8 *aData, PRUint32 aLength)
 
     memcpy(y + yN, d, yN / 2);
     delete[] d;
+#else
+    PRUint8* data = new PRUint8[ aLength ];
+    if (!data) {
+      DOM_CAMERA_LOGE("Couldn't allocate de-interlacing buffer\n");
+      delete image;
+      return;
+    }
+
+    // we copy the Y plane, and de-interlace the CrCb
+    PRUint32 yFrameSize = mWidth * mHeight;
+    PRUint32 uvFrameSize = yFrameSize / 4;
+    memcpy(data, aData, yFrameSize);
+
+    PRUint8* uFrame = data + yFrameSize;
+    PRUint8* vFrame = data + yFrameSize + uvFrameSize;
+    const PRUint8* yFrame = aData + yFrameSize;
+    for (PRUint32 i = 0; i < uvFrameSize; i++) {
+      uFrame[i] = yFrame[2 * i + 1];
+      vFrame[i] = yFrame[2 * i];
+    }
+
+    aData = data;
+#endif
   }
 
   const PRUint8 lumaBpp = 8;

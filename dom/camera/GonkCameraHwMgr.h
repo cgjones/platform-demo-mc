@@ -9,6 +9,8 @@
 #include "libcameraservice/CameraHardwareInterface.h"
 #include "binder/IMemory.h"
 #include "mozilla/ReentrantMonitor.h"
+#include "GonkCameraListener.h"
+#include <utils/threads.h>
 
 // #include "GonkImpl.h"
 #include "GonkCameraControl.h"
@@ -31,6 +33,7 @@ protected:
   ~GonkCameraHardware();
   void init();
 
+  static void                   DataCallbackTimestamp(nsecs_t timestamp, int32_t aMsgType, const sp<IMemory> &aDataPtr, void* aUser);
   static void                   DataCallback(int32_t aMsgType, const sp<IMemory> &aDataPtr, camera_frame_metadata_t *aMetadata, void* aUser);
   static void                   NotifyCallback(int32_t aMsgType, int32_t ext1, int32_t ext2, void* aUser);
 
@@ -48,6 +51,12 @@ public:
   static void                   doCameraHardwareStopPreview(PRUint32 aHwHandle);
   static int                    doCameraHardwarePushParameters(PRUint32 aHwHandle, const CameraParameters& aParams);
   static void                   doCameraHardwarePullParameters(PRUint32 aHwHandle, CameraParameters& aParams);
+  static int                    doCameraHardwareStartRecording(PRUint32 aHwHandle);
+  static int                    doCameraHardwareStopRecording(PRUint32 aHwHandle);
+  static int                    setListener(PRUint32 aHwHandle, const sp<GonkCameraListener>& listener);
+  static void                   releaseRecordingFrame(PRUint32 aHwHandle, const sp<IMemory>& frame);
+  static int                    storeMetaDataInBuffers(PRUint32 aHwHandle, bool enabled);
+
 
 protected:
   static GonkCameraHardware*    sHw;
@@ -88,6 +97,7 @@ protected:
   struct timespec               mStart;
   struct timespec               mAutoFocusStart;
 #endif
+  sp<GonkCameraListener>        mListener;
 };
 
 
