@@ -18,7 +18,7 @@
 #include "gfxPattern.h"
 #include "nsTArray.h"
 #include "nsThreadUtils.h"
-
+#include "nsStyleAnimation.h"
 #include "mozilla/gfx/2D.h"
 #include "mozilla/TimeStamp.h"
 
@@ -561,6 +561,12 @@ private:
 class ThebesLayer;
 typedef InfallibleTArray<Animation> AnimationArray;
 
+struct AnimData {
+  InfallibleTArray<nsStyleAnimation::Value> mStartValues;
+  InfallibleTArray<nsStyleAnimation::Value> mEndValues;
+  InfallibleTArray<mozilla::css::ComputedTimingFunction*> mFunctions;
+};
+
 /**
  * A Layer represents anything that can be rendered onto a destination
  * surface.
@@ -747,10 +753,12 @@ public:
    */
   void SetIsFixedPosition(bool aFixedPosition) { mIsFixedPosition = aFixedPosition; }
 
-  bool AddAnimation(const Animation& aAnimation);
+  // Call AddAnimation to add an animation to this layer from layout code.
+  void AddAnimation(const Animation& aAnimation);
+  // ClearAnimations clears animations on this layer.
   void ClearAnimations();
-  // This is only called when the layer tree is updated. To add an animation to
-  // this layer, use AddAnimation.
+  // This is only called when the layer tree is updated. Do not call this from
+  // layout code.  To add an animation to this layer, use AddAnimation.
   void SetAnimations(const AnimationArray& aAnimations);
 
   // These getters can be used anytime.
@@ -767,8 +775,7 @@ public:
   bool GetIsFixedPosition() { return mIsFixedPosition; }
   Layer* GetMaskLayer() { return mMaskLayer; }
   const AnimationArray& GetAnimations() { return mAnimations; }
-  const InfallibleTArray<InfallibleTArray<css::ComputedTimingFunction*>*>&
-    GetFunctions() { return mFunctions; } 
+  const InfallibleTArray<AnimData>& GetAnimationData() { return mAnimationData; }
   /**
    * DRAWING PHASE ONLY
    *
@@ -1007,7 +1014,7 @@ protected:
   gfx3DMatrix mTransform;
   gfx3DMatrix mEffectiveTransform;
   AnimationArray mAnimations;
-  InfallibleTArray<InfallibleTArray<css::ComputedTimingFunction*>*> mFunctions;
+  InfallibleTArray<AnimData> mAnimationData;
   float mOpacity;
   nsIntRect mClipRect;
   nsIntRect mTileSourceRect;

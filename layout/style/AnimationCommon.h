@@ -108,7 +108,7 @@ public:
   void Init(const nsTimingFunction &aFunction);
   double GetValue(double aPortion) const;
   const nsSMILKeySpline* const GetFunction() const {
-    NS_ASSERTION(mType == Type::Function, "Type mismatch");
+    NS_ASSERTION(mType == nsTimingFunction::Function, "Type mismatch");
     return &mTimingFunction;
   }
   Type GetType() const { return mType; }

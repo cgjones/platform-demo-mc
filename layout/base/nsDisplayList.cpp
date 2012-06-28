@@ -36,6 +36,7 @@
 #include "nsSVGClipPathFrame.h"
 #include "sampler.h"
 #include "nsAnimationManager.h"
+#include "nsTransitionManager.h"
 
 #include "mozilla/StandardInteger.h"
 
@@ -1947,6 +1948,9 @@ nsDisplayOpacity::GetLayerState(nsDisplayListBuilder* aBuilder,
     ElementAnimations* ea = nsAnimationManager::GetAnimations(mFrame->GetContent());
     if (ea && ea->CanPerformOnCompositorThread())
       return LAYER_ACTIVE;
+    ElementTransitions* et = nsTransitionManager::GetTransitions(mFrame->GetContent());
+    if (et && et->CanPerformOnCompositorThread())
+      return LAYER_ACTIVE;
   }
   nsIFrame* activeScrolledRoot =
     nsLayoutUtils::GetActiveScrolledRootFor(mFrame, nsnull);
@@ -2862,6 +2866,9 @@ nsDisplayTransform::GetLayerState(nsDisplayListBuilder* aBuilder,
   if (mFrame->GetContent()) {
     ElementAnimations* ea = nsAnimationManager::GetAnimations(mFrame->GetContent());
     if (ea && ea->CanPerformOnCompositorThread())
+      return LAYER_ACTIVE;
+    ElementTransitions* et = nsTransitionManager::GetTransitions(mFrame->GetContent());
+    if (et && et->CanPerformOnCompositorThread())
       return LAYER_ACTIVE;
   }
   nsIFrame* activeScrolledRoot =

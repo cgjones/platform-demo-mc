@@ -439,113 +439,15 @@ SetShadowProperties(Layer* aLayer)
   }
 }
 
-static nsCSSValueList*
-CreateCSSValueList(InfallibleTArray<TransformFunction>& aFunctions)
-{
-  nsAutoPtr<nsCSSValueList> result;
-  nsCSSValueList** resultTail = getter_Transfers(result);
-  for (PRUint32 i = 0; i < aFunctions.Length(); i++) {
-    nsRefPtr<nsCSSValue::Array> arr;
-    switch(aFunctions[i].type()) {
-      case TransformFunction::TRotation:
-      {
-        // The CSS spec doesn't recognize rotate3d as a primitive, so we must convert rotations
-        // to the correct axis if possible in order to get correct interpolation
-        float x = aFunctions[i].get_Rotation().x();
-        float y = aFunctions[i].get_Rotation().y();
-        float z = aFunctions[i].get_Rotation().z();
-        float theta = aFunctions[i].get_Rotation().radians();
-        if (x == 1 && y == 0 && z == 0) {
-          arr = nsStyleAnimation::AppendTransformFunction(eCSSKeyword_rotatex, resultTail);
-          arr->Item(1).SetFloatValue(theta, eCSSUnit_Radian);
-        } else if (x == 0 && y == 1 && z == 0) {
-          arr = nsStyleAnimation::AppendTransformFunction(eCSSKeyword_rotatey, resultTail);
-          arr->Item(1).SetFloatValue(theta, eCSSUnit_Radian);
-        } else if (x == 0 && y == 0 && z == 1) {
-          arr = nsStyleAnimation::AppendTransformFunction(eCSSKeyword_rotatez, resultTail);
-          arr->Item(1).SetFloatValue(theta, eCSSUnit_Radian);
-        } else {
-          arr = nsStyleAnimation::AppendTransformFunction(eCSSKeyword_rotate3d, resultTail);
-          arr->Item(1).SetFloatValue(x, eCSSUnit_Number);
-          arr->Item(2).SetFloatValue(y, eCSSUnit_Number);
-          arr->Item(3).SetFloatValue(z, eCSSUnit_Number);
-          arr->Item(4).SetFloatValue(theta, eCSSUnit_Radian);
-        }
-        break;
-      }
-      case TransformFunction::TScale:
-      {
-        arr = nsStyleAnimation::AppendTransformFunction(eCSSKeyword_scale3d, resultTail);
-        arr->Item(1).SetFloatValue(aFunctions[i].get_Scale().x(), eCSSUnit_Number);
-        arr->Item(2).SetFloatValue(aFunctions[i].get_Scale().y(), eCSSUnit_Number);
-        arr->Item(3).SetFloatValue(aFunctions[i].get_Scale().z(), eCSSUnit_Number);
-        break;
-      }
-      case TransformFunction::TTranslation:
-      {
-        arr = nsStyleAnimation::AppendTransformFunction(eCSSKeyword_translate3d, resultTail);
-        arr->Item(1).SetFloatValue(aFunctions[i].get_Translation().x(), eCSSUnit_Number);
-        arr->Item(2).SetFloatValue(aFunctions[i].get_Translation().y(), eCSSUnit_Number);
-        arr->Item(3).SetFloatValue(aFunctions[i].get_Translation().z(), eCSSUnit_Number);
-        break;
-      }
-      case TransformFunction::TSkew:
-      {
-        float x = aFunctions[i].get_Skew().x();
-        float y = aFunctions[i].get_Skew().y();
-        if (y == 0) {
-          arr = nsStyleAnimation::AppendTransformFunction(eCSSKeyword_skewx, resultTail);
-          arr->Item(1).SetFloatValue(x, eCSSUnit_Number);
-        } else {
-          arr = nsStyleAnimation::AppendTransformFunction(eCSSKeyword_skewy, resultTail);
-          arr->Item(1).SetFloatValue(y, eCSSUnit_Number);
-        }
-      }
-      case TransformFunction::TTransformMatrix:
-      {
-        arr = nsStyleAnimation::AppendTransformFunction(eCSSKeyword_matrix3d, resultTail);
-        gfx3DMatrix& matrix = aFunctions[i].get_TransformMatrix().value();
-        arr->Item(1).SetFloatValue(matrix._11, eCSSUnit_Number);
-        arr->Item(2).SetFloatValue(matrix._12, eCSSUnit_Number);
-        arr->Item(3).SetFloatValue(matrix._13, eCSSUnit_Number);
-        arr->Item(4).SetFloatValue(matrix._14, eCSSUnit_Number);
-        arr->Item(5).SetFloatValue(matrix._21, eCSSUnit_Number);
-        arr->Item(6).SetFloatValue(matrix._22, eCSSUnit_Number);
-        arr->Item(7).SetFloatValue(matrix._23, eCSSUnit_Number);
-        arr->Item(8).SetFloatValue(matrix._24, eCSSUnit_Number);
-        arr->Item(9).SetFloatValue(matrix._31, eCSSUnit_Number);
-        arr->Item(10).SetFloatValue(matrix._32, eCSSUnit_Number);
-        arr->Item(11).SetFloatValue(matrix._33, eCSSUnit_Number);
-        arr->Item(12).SetFloatValue(matrix._34, eCSSUnit_Number);
-        arr->Item(13).SetFloatValue(matrix._41, eCSSUnit_Number);
-        arr->Item(14).SetFloatValue(matrix._42, eCSSUnit_Number);
-        arr->Item(15).SetFloatValue(matrix._43, eCSSUnit_Number);
-        arr->Item(16).SetFloatValue(matrix._44, eCSSUnit_Number);
-        break;
-      }
-      default:
-        NS_ASSERTION(false, "All functions should be implemented?");
-    }
-  }
-  return result.forget();
-}
-
 static void
-SampleValue(const AnimationSegment* aSegment, float aPoint, Animation& aAnimation, Animatable* aValue)
+SampleValue(float aPoint, Animation& aAnimation, nsStyleAnimation::Value& aStart,
+            nsStyleAnimation::Value& aEnd, Animatable* aValue)
 {
-  if (aSegment->endState().type() == Animatable::TArrayOfTransformFunction) {
-    InfallibleTArray<TransformFunction> startFunctions = aSegment->startState().get_ArrayOfTransformFunction();
-    nsCSSValueList* startList = CreateCSSValueList(startFunctions);
-    nsStyleAnimation::Value startValue;
-    startValue.SetAndAdoptCSSValueListValue(startList, nsStyleAnimation::eUnit_Transform);
-
-    InfallibleTArray<TransformFunction> endFunctions = aSegment->endState().get_ArrayOfTransformFunction();
-    nsCSSValueList* endList = CreateCSSValueList(endFunctions);
-    nsStyleAnimation::Value endValue;
-    endValue.SetAndAdoptCSSValueListValue(endList, nsStyleAnimation::eUnit_Transform);
-
-    nsStyleAnimation::Value interpolatedValue;
-    nsStyleAnimation::Interpolate(eCSSProperty_transform, startValue, endValue, aPoint, interpolatedValue);
+  nsStyleAnimation::Value interpolatedValue;
+  NS_ASSERTION(aStart.GetUnit() == aEnd.GetUnit(), "Must have same unit");
+  if (aStart.GetUnit() == nsStyleAnimation::eUnit_Transform) {
+    nsStyleAnimation::Interpolate(eCSSProperty_transform, aStart, aEnd,
+                                  aPoint, interpolatedValue);
     nsCSSValueList* interpolatedList = interpolatedValue.GetCSSValueListValue();
 
     TransformData& data = aAnimation.data().get_TransformData();
@@ -560,20 +462,22 @@ SampleValue(const AnimationSegment* aSegment, float aPoint, Animation& aAnimatio
     return;
   }
 
-  NS_ASSERTION(aSegment->endState().type() == Animatable::TOpacity, "Should be opacity");
-  float first = aSegment->startState().get_Opacity().value();
-  float last = aSegment->endState().get_Opacity().value();
-  *aValue = first + (last - first) * aPoint;
+  NS_ASSERTION(aStart.GetUnit() == nsStyleAnimation::eUnit_Float, "Should be opacity");
+  nsStyleAnimation::Interpolate(eCSSProperty_opacity, aStart, aEnd,
+                                aPoint, interpolatedValue);
+  *aValue = interpolatedValue.GetFloatValue();
 }
 
 static void
 SampleAnimations(Layer* aLayer, TimeStamp aPoint, bool* aActiveAnimation)
 {
-  AnimationArray& animations = const_cast<AnimationArray&>(aLayer->GetAnimations());
-  InfallibleTArray<InfallibleTArray<css::ComputedTimingFunction*>*>& functions =
-    const_cast<InfallibleTArray<InfallibleTArray<css::ComputedTimingFunction*>*>&>(aLayer->GetFunctions());
+  AnimationArray& animations =
+    const_cast<AnimationArray&>(aLayer->GetAnimations());
+  InfallibleTArray<AnimData>& animationData =
+    const_cast<InfallibleTArray<AnimData>&>(aLayer->GetAnimationData());
   for (PRInt32 i = animations.Length() - 1; i >= 0; --i) {
     Animation& animation = animations[i];
+    AnimData& animData = animationData[i];
 
     double numIterations = animation.numIterations() != -1 ?
       animation.numIterations() : NS_IEEEPositiveInfinity();
@@ -586,7 +490,7 @@ SampleAnimations(Layer* aLayer, TimeStamp aPoint, bool* aActiveAnimation)
 
     if (positionInIteration == -1) {
         animations.RemoveElementAt(i);
-        functions.RemoveElementAt(i);
+        animationData.RemoveElementAt(i);
         continue;
     }
 
@@ -604,20 +508,16 @@ SampleAnimations(Layer* aLayer, TimeStamp aPoint, bool* aActiveAnimation)
     double positionInSegment = (positionInIteration - segment->startPoint()) /
                                  (segment->endPoint() - segment->startPoint());
 
-    double point = functions.ElementAt(i)->ElementAt(segmentIndex)->GetValue(positionInSegment);
+    double point = animData.mFunctions[segmentIndex]->GetValue(positionInSegment);
 
     *aActiveAnimation = true;
 
     // interpolate the property
     Animatable interpolatedValue;
-    SampleValue(segment, point, animation, &interpolatedValue);
-
+    SampleValue(point, animation, animData.mStartValues[segmentIndex],
+                animData.mEndValues[segmentIndex], &interpolatedValue);
     ShadowLayer* shadow = aLayer->AsShadowLayer();
     switch (interpolatedValue.type()) {
-    case Animatable::TColor:
-      // TODO
-      NS_NOTREACHED("Don't animate color yet");
-      break;
     case Animatable::TOpacity:
       shadow->SetShadowOpacity(interpolatedValue.get_Opacity().value());
       break;

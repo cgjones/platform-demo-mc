@@ -22,6 +22,8 @@
 #include "nsEventDispatcher.h"
 #include "nsGUIEvent.h"
 #include "mozilla/dom/Element.h"
+#include "nsIFrame.h"
+#include "nsCSSFrameConstructor.h"
 
 using mozilla::TimeStamp;
 using mozilla::TimeDuration;
@@ -36,6 +38,16 @@ ElementTransitions::ElementTransitions(mozilla::dom::Element *aElement, nsIAtom 
 {
   }
 
+bool
+ElementTransitions::HasAnimationOfProperty(nsCSSProperty aProperty) const
+{
+  for (PRUint32 propIdx = mPropertyTransitions.Length(); propIdx-- != 0; ) {
+    if (aProperty == mPropertyTransitions[propIdx].mProperty) {
+      return true;
+    }
+  }
+  return false;
+}
 
 double
 ElementPropertyTransition::ValuePortionFor(TimeStamp aRefreshTime) const
@@ -106,7 +118,7 @@ ElementTransitions::EnsureStyleRuleFor(TimeStamp aRefreshTime)
     }
   }
 }
-/*
+
 bool
 ElementTransitions::CanPerformOnCompositorThread() const
 {
@@ -115,14 +127,16 @@ ElementTransitions::CanPerformOnCompositorThread() const
     if (pt.IsRemovedSentinel()) {
       continue;
     }
-    if (!CommonElementAnimationData::CanPerformOnCompositorThread(mElement,
-                                                                  pt.mProperty)) {
+    if (!CommonElementAnimationData::CanAnimatePropertyOnCompositor(mElement,
+                                                                    pt.mProperty)) {
+      return false;
+    }
+    if (pt.mStartValue != pt.mStartForReversingTest) {
       return false;
     }
   }
-  // return true;
-  return false; // XXXdz change this to return true when transitions are implemented
-}*/
+  return true;
+}
 
 /*****************************************************************************
  * nsTransitionManager                                                       *
@@ -315,11 +329,7 @@ nsTransitionManager::StyleContextChanged(dom::Element *aElement,
   // rule.
 
   nsRefPtr<css::AnimValuesStyleRule> coverRule = new css::AnimValuesStyleRule;
-  if (!coverRule) {
-    NS_WARNING("out of memory");
-    return nsnull;
-  }
-  
+
   nsTArray<ElementPropertyTransition> &pts = et->mPropertyTransitions;
   for (PRUint32 i = 0, i_end = pts.Length(); i < i_end; ++i) {
     ElementPropertyTransition &pt = pts[i];
@@ -364,9 +374,17 @@ nsTransitionManager::ConsiderStartingTransition(nsCSSProperty aProperty,
                                       pt.mStartValue) &&
     ExtractComputedValueForTransition(aProperty, aNewStyleContext,
                                       pt.mEndValue);
+
+  bool haveChange = pt.mStartValue != pt.mEndValue;
+  bool haveOMTA = false;
+  ElementTransitions* et = nsTransitionManager::GetTransitions(aElement);
+  if (et) {
+    haveOMTA = et->CanPerformOnCompositorThread();
+  }
+
   bool shouldAnimate =
     haveValues &&
-    pt.mStartValue != pt.mEndValue &&
+    (haveChange || haveOMTA) &&
     // Check that we can interpolate between these values
     // (If this is ever a performance problem, we could add a
     // CanInterpolate method, but it seems fine for now.)
@@ -467,6 +485,7 @@ nsTransitionManager::ConsiderStartingTransition(nsCSSProperty aProperty,
       // reduce positive delays.
       if (delay < 0.0f)
         delay *= valuePortion;
+
       duration *= valuePortion;
 
       pt.mStartForReversingTest = oldPT.mEndValue;
@@ -478,7 +497,6 @@ nsTransitionManager::ConsiderStartingTransition(nsCSSProperty aProperty,
   pt.mStartTime = mostRecentRefresh + TimeDuration::FromMilliseconds(delay);
   pt.mDuration = TimeDuration::FromMilliseconds(duration);
   pt.mTimingFunction.Init(tf);
-
   if (!aElementTransitions) {
     aElementTransitions =
       GetElementTransitions(aElement, aNewStyleContext->GetPseudoType(),
@@ -507,11 +525,20 @@ nsTransitionManager::ConsiderStartingTransition(nsCSSProperty aProperty,
     }
   }
 
-  nsRestyleHint hint =
-    aNewStyleContext->GetPseudoType() ==
-      nsCSSPseudoElements::ePseudo_NotPseudoElement ?
-    eRestyle_Self : eRestyle_Subtree;
-  presContext->PresShell()->RestyleForAnimation(aElement, hint);
+  // Start by either scheduling a restyle or by rebuilding the
+  // layer tree, depending on how this transition is being done.
+  if (!aElementTransitions->CanPerformOnCompositorThread()) {
+    nsRestyleHint hint =
+      aNewStyleContext->GetPseudoType() ==
+        nsCSSPseudoElements::ePseudo_NotPseudoElement ?
+      eRestyle_Self : eRestyle_Subtree;
+    printf("\nrestyling for animation\n");
+    presContext->PresShell()->RestyleForAnimation(aElement, hint);
+  } else {
+    printf("\n invalidating\n");
+    nsIFrame* frame = presContext->GetRootPresContext()->PresShell()->GetRootFrame();
+    frame->InvalidateWithFlags(frame->GetRect(), nsIFrame::INVALIDATE_NO_THEBES_LAYERS);
+  }
 
   *aStartedAny = true;
   aWhichStarted->AddProperty(aProperty);
@@ -697,6 +724,7 @@ nsTransitionManager::WillRefresh(mozilla::TimeStamp aTime)
 
       PRUint32 i = et->mPropertyTransitions.Length();
       NS_ABORT_IF_FALSE(i != 0, "empty transitions list?");
+      bool transitionFinished = false;
       do {
         --i;
         ElementPropertyTransition &pt = et->mPropertyTransitions[i];
@@ -706,6 +734,7 @@ nsTransitionManager::WillRefresh(mozilla::TimeStamp aTime)
           et->mPropertyTransitions.RemoveElementAt(i);
         } else if (pt.mStartTime + pt.mDuration <= aTime) {
           // This transition has completed.
+          transitionFinished = true;
 
           // Fire transitionend events only for transitions on elements
           // and not those on pseudo-elements, since we can't target an
@@ -737,9 +766,14 @@ nsTransitionManager::WillRefresh(mozilla::TimeStamp aTime)
                    et->mElementProperty == nsGkAtoms::transitionsOfBeforeProperty ||
                    et->mElementProperty == nsGkAtoms::transitionsOfAfterProperty,
                    "Unexpected element property; might restyle too much");
-      nsRestyleHint hint = et->mElementProperty == nsGkAtoms::transitionsProperty ?
-        eRestyle_Self : eRestyle_Subtree;
-      mPresContext->PresShell()->RestyleForAnimation(et->mElement, hint);
+
+      // Do not animate if the compositor is handling this transition, but we
+      // must restyle if one of the transition properties finishes.
+      if (!et->CanPerformOnCompositorThread() || transitionFinished) {
+        nsRestyleHint hint = et->mElementProperty == nsGkAtoms::transitionsProperty ?
+          eRestyle_Self : eRestyle_Subtree;
+        mPresContext->PresShell()->RestyleForAnimation(et->mElement, hint);
+      }
 
       if (et->mPropertyTransitions.IsEmpty()) {
         et->Destroy();
