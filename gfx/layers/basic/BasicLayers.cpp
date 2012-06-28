@@ -8,6 +8,7 @@
 
 #include "gfxSharedImageSurface.h"
 
+#include "mozilla/layers/ImageContainerChild.h"
 #include "mozilla/layers/PLayerChild.h"
 #include "mozilla/layers/PLayersChild.h"
 #include "mozilla/layers/PLayersParent.h"
@@ -2735,6 +2736,13 @@ BasicShadowableImageLayer::Paint(gfxContext* aContext, Layer* aMaskLayer)
   }
 
   if (!mContainer) {
+    return;
+  }
+
+  if (mContainer->GetImageContainerChild()) {
+    PRUint64 imageID = mContainer->GetImageContainerChild()->GetImageID();
+    SharedImage* refImg = new SharedImage(*new SharedImageID(imageID));
+    BasicManager()->PaintedImage(BasicManager()->Hold(this), *refImg);
     return;
   }
 

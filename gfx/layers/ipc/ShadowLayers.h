@@ -426,10 +426,20 @@ public:
 
   static void PlatformSyncBeforeReplyUpdate();
 
+  void SetCompositorID(PRUint32 aID)
+  {
+    mCompositorID = aID;
+  }
+  PRUint32 GetCompositorID() const
+  {
+    return mCompositorID;
+  }
+
 protected:
   ShadowLayerManager() {}
 
   bool PlatformDestroySharedSurface(SurfaceDescriptor* aSurface);
+  PRUint32 mCompositorID;
 };
 
 
@@ -661,8 +671,14 @@ public:
 
 protected:
   ShadowImageLayer(LayerManager* aManager, void* aImplData)
-    : ImageLayer(aManager, aImplData)
+    : ImageLayer(aManager, aImplData), 
+      mImageID(0),
+      mImageVersion(0)
   {}
+
+  // ImageBridge protocol:
+  PRUint64 mImageID;
+  PRUint32 mImageVersion;
 };
 
 

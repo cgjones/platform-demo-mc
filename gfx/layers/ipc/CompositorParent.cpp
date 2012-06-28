@@ -24,12 +24,46 @@
 #include <android/log.h>
 #endif
 
+#include <map>
+
 using base::Thread;
 namespace mozilla {
 namespace layers {
 
-CompositorParent::CompositorParent(nsIWidget* aWidget, MessageLoop* aMsgLoop,
-                                   PlatformThreadId aThreadID, bool aRenderToEGLSurface,
+static base::Thread* sCompositorThread = nsnull;
+
+bool CompositorParent::CreateThread()
+{
+  if (sCompositorThread) {
+    return true;
+  }
+  sCompositorThread = new base::Thread("Compositor");
+  if (!sCompositorThread->Start()) {
+    delete sCompositorThread;
+    sCompositorThread = nsnull;
+    return false;
+  }
+  return true;
+}
+
+void CompositorParent::DestroyThread()
+{
+  if (sCompositorThread) {
+    delete sCompositorThread;
+    sCompositorThread = nsnull;
+  }
+}
+
+MessageLoop* CompositorParent::CompositorLoop()
+{
+  if (sCompositorThread) {
+    return sCompositorThread->message_loop();
+  }
+  return nsnull;
+}
+
+CompositorParent::CompositorParent(nsIWidget* aWidget,
+                                   bool aRenderToEGLSurface,
                                    int aSurfaceWidth, int aSurfaceHeight)
   : mWidget(aWidget)
   , mCurrentCompositeTask(NULL)
@@ -38,26 +72,21 @@ CompositorParent::CompositorParent(nsIWidget* aWidget, MessageLoop* aMsgLoop,
   , mYScale(1.0)
   , mIsFirstPaint(false)
   , mLayersUpdated(false)
-  , mCompositorLoop(aMsgLoop)
-  , mThreadID(aThreadID)
   , mRenderToEGLSurface(aRenderToEGLSurface)
   , mEGLSurfaceSize(aSurfaceWidth, aSurfaceHeight)
   , mPauseCompositionMonitor("PauseCompositionMonitor")
   , mResumeCompositionMonitor("ResumeCompositionMonitor")
 {
+  NS_ABORT_IF_FALSE(sCompositorThread != nsnull, 
+                    "The compositor thread must be Initialized before instanciating a COmpositorParent.");
   MOZ_COUNT_CTOR(CompositorParent);
-}
-
-MessageLoop*
-CompositorParent::CompositorLoop()
-{
-  return mCompositorLoop;
+  mCompositorID = AddCompositor(this);
 }
 
 PlatformThreadId
 CompositorParent::CompositorThreadID()
 {
-  return mThreadID;
+  return sCompositorThread->thread_id();
 }
 
 CompositorParent::~CompositorParent()
@@ -79,7 +108,7 @@ bool
 CompositorParent::RecvWillStop()
 {
   mPaused = true;
-
+  RemoveCompositor(mCompositorID);
   // Ensure that the layer manager is destroyed before CompositorChild.
   mLayerManager->Destroy();
 
@@ -673,7 +702,11 @@ CompositorParent::AllocPLayers(const LayersBackend& aBackendType, int* aMaxTextu
       new LayerManagerOGL(mWidget, mEGLSurfaceSize.width, mEGLSurfaceSize.height, mRenderToEGLSurface);
     mWidget = NULL;
     mLayerManager = layerManager;
-
+    ShadowLayerManager* shadowManager = layerManager->AsShadowManager();
+    if (shadowManager) {
+      shadowManager->SetCompositorID(mCompositorID);  
+    }
+    
     if (!layerManager->Initialize()) {
       NS_ERROR("Failed to init OGL Layers");
       return NULL;
@@ -713,6 +746,53 @@ CompositorParent::SetAsyncPanZoomController(AsyncPanZoomController* aAsyncPanZoo
 {
   mAsyncPanZoomController = aAsyncPanZoomController;
 }
+
+namespace {
+  typedef std::map<PRUint32,CompositorParent*> CompositorMap;
+  CompositorMap* sCompositorMap;
+} // anonymous namespace
+
+void CompositorParent::CreateCompositorMap()
+{
+  if (sCompositorMap == nsnull) {
+    sCompositorMap = new CompositorMap;
+  }
+}
+
+void CompositorParent::DestroyCompositorMap()
+{
+  if (sCompositorMap != nsnull) {
+    delete sCompositorMap;
+    sCompositorMap = nsnull;
+  }
+}
+
+CompositorParent* CompositorParent::GetCompositor(PRUint32 id)
+{
+  CompositorMap::iterator it = sCompositorMap->find(id);
+  if (it == sCompositorMap->end()) return nsnull;
+  return it->second;
+}
+
+PRUint32 CompositorParent::AddCompositor(CompositorParent* compositor)
+{
+  static PRUint32 sNextID = 1;
+  while ((sNextID == 0) || (sCompositorMap->find(sNextID) != sCompositorMap->end())) {
+    ++sNextID;
+  }
+
+  (*sCompositorMap)[sNextID] = compositor;
+  return sNextID;
+}
+
+CompositorParent* CompositorParent::RemoveCompositor(PRUint32 id)
+{
+  CompositorMap::iterator it = sCompositorMap->find(id);
+  if (it == sCompositorMap->end()) return nsnull;
+  sCompositorMap->erase(it);
+  return it->second;
+}
+
 
 } // namespace layers
 } // namespace mozilla

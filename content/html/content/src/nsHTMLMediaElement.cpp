@@ -6,6 +6,8 @@
 
 #include "mozilla/Util.h"
 
+#include "mozilla/layers/ImageBridgeChild.h"
+#include "mozilla/layers/ImageContainerChild.h"
 #include "nsIDOMHTMLMediaElement.h"
 #include "nsIDOMHTMLSourceElement.h"
 #include "nsHTMLMediaElement.h"
@@ -85,6 +87,10 @@
 #ifdef MOZ_MEDIA_PLUGINS
 #include "nsMediaPluginHost.h"
 #include "nsMediaPluginDecoder.h"
+#endif
+
+#ifdef LOG
+#undef LOG
 #endif
 
 #ifdef PR_LOGGING
@@ -2992,6 +2998,12 @@ VideoFrameContainer* nsHTMLMediaElement::GetVideoFrameContainer()
 
   mVideoFrameContainer =
     new VideoFrameContainer(this, LayerManager::CreateImageContainer());
+  
+  ImageContainer* container = mVideoFrameContainer->GetImageContainer();
+  if (mozilla::layers::ImageBridgeChild::IsCreated()) { 
+    mozilla::layers::ImageBridgeChild::GetSingleton()->CreateImageContainerChild(container);
+  }
+
   return mVideoFrameContainer;
 }
 

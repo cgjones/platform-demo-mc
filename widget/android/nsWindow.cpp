@@ -173,7 +173,7 @@ nsWindow::~nsWindow()
         top->mFocus = nsnull;
     ALOG("nsWindow %p destructor", (void*)this);
 #ifdef MOZ_JAVA_COMPOSITOR
-    SetCompositor(NULL, NULL, NULL);
+    SetCompositor(NULL, NULL);
 #endif
 }
 
@@ -699,7 +699,7 @@ nsWindow::GetLayerManager(PLayersChild*, LayersBackend, LayerManagerPersistence,
     if (useCompositor) {
         CreateCompositor();
         if (mLayerManager) {
-            SetCompositor(mCompositorParent, mCompositorChild, mCompositorThread);
+            SetCompositor(mCompositorParent, mCompositorChild);
             return mLayerManager;
         }
 
@@ -2281,17 +2281,14 @@ nsWindow::DrawWindowOverlay(LayerManager* aManager, nsIntRect aRect)
 
 nsRefPtr<mozilla::layers::CompositorParent> nsWindow::sCompositorParent = 0;
 nsRefPtr<mozilla::layers::CompositorChild> nsWindow::sCompositorChild = 0;
-base::Thread * nsWindow::sCompositorThread = 0;
 bool nsWindow::sCompositorPaused = false;
 
 void
 nsWindow::SetCompositor(mozilla::layers::CompositorParent* aCompositorParent,
-                        mozilla::layers::CompositorChild* aCompositorChild,
-                        ::base::Thread* aCompositorThread)
+                        mozilla::layers::CompositorChild* aCompositorChild)
 {
     sCompositorParent = aCompositorParent;
     sCompositorChild = aCompositorChild;
-    sCompositorThread = aCompositorThread;
 
     if (sCompositorParent && AndroidBridge::Bridge() && AndroidBridge::Bridge()->mAsyncPanZoomController) {
         // Make the pan zoom controller and compositor parent aware of each other.

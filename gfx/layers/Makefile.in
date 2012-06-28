@@ -110,6 +110,11 @@ EXPORTS_mozilla/layers =\
         ShadowLayersParent.h \
         ShadowLayersManager.h \
         RenderTrace.h \
+        ImageBridgeChild.h \
+        ImageBridgeParent.h \
+        ImageContainerChild.h \
+        ImageContainerParent.h \
+	SharedImageUtils.h \
         AsyncPanZoomController.h \
         GeckoContentController.h \
         GestureEventListener.h \
@@ -126,6 +131,10 @@ CPPSRCS += \
         ShadowLayersChild.cpp \
         ShadowLayerParent.cpp \
         ShadowLayersParent.cpp \
+        ImageBridgeChild.cpp \
+        ImageBridgeParent.cpp \
+        ImageContainerChild.cpp \
+        ImageContainerParent.cpp \
         AsyncPanZoomController.cpp \
         GeckoContentController.cpp \
         GestureEventListener.cpp \

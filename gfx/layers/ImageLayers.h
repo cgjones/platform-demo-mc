@@ -40,6 +40,8 @@ class Shmem;
 
 namespace layers {
 
+class ImageContainerChild;
+
 enum StereoMode {
   STEREO_MODE_MONO,
   STEREO_MODE_LEFT_RIGHT,
@@ -306,7 +308,8 @@ public:
     mRecycleBin(new BufferRecycleBin()),
     mRemoteData(nsnull),
     mRemoteDataMutex(nsnull),
-    mCompositionNotifySink(nsnull)
+    mCompositionNotifySink(nsnull),
+    mImageContainerChild(nsnull)
   {}
 
   ~ImageContainer();
@@ -333,6 +336,10 @@ public:
    *
    * Implementations must call CurrentImageChanged() while holding
    * mReentrantMonitor.
+   *
+   * If this ImageContainer has an ImageContainerChild for async video: 
+   * Schelude a task to send the image to the compositor using the 
+   * PImageBridge protcol without using the main thread.
    */
   void SetCurrentImage(Image* aImage);
 
@@ -484,6 +491,17 @@ public:
    */
   RemoteImageData *GetRemoteImageData() { return mRemoteData; }
 
+  // -------------- Async Image transfer
+
+  ImageContainerChild * GetImageContainerChild() const
+  {
+    return mImageContainerChild;
+  }
+  void SetImageContainerChild(ImageContainerChild * aChild)
+  {
+    mImageContainerChild = aChild;
+  }
+
 protected:
   typedef mozilla::ReentrantMonitor ReentrantMonitor;
 
@@ -540,6 +558,9 @@ protected:
   CrossProcessMutex *mRemoteDataMutex;
 
   CompositionNotifySink *mCompositionNotifySink;
+
+  // ImageBridgeProtocol
+  ImageContainerChild * mImageContainerChild;
 };
  
 class AutoLockImage

@@ -4,7 +4,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "gfxSharedImageSurface.h"
-
+#include "mozilla/layers/ImageContainerParent.h"
 #include "ImageLayerOGL.h"
 #include "gfxImageSurface.h"
 #include "gfxUtils.h"
@@ -721,7 +721,12 @@ ShadowImageLayerOGL::Swap(const SharedImage& aNewFront,
                           SharedImage* aNewBack)
 {
   if (!mDestroyed) {
-    if (aNewFront.type() == SharedImage::TSurfaceDescriptor) {
+    if (aNewFront.type() == SharedImage::TSharedImageID) {
+      // We are using ImageBridge protocol. The image data will be queried at render
+      // time in the parent side.
+      mImageID = aNewFront.get_SharedImageID().id();
+      mImageVersion = 0;
+    } else if (aNewFront.type() == SharedImage::TSurfaceDescriptor) {
       AutoOpenSurface surf(OpenReadOnly, aNewFront.get_SurfaceDescriptor());
       gfxIntSize size = surf.Size();
       if (mSize != size || !mTexImage ||
@@ -785,11 +790,78 @@ ShadowImageLayerOGL::GetLayer()
   return this;
 }
 
+bool ShadowImageLayerOGL::UploadTextureFromSharedImage(SharedImage* img)
+{
+  if (img == nsnull) {
+    return false;
+  }
+  if (img->type() != SharedImage::TYUVImage) {
+    return false;
+  }
+
+  const YUVImage& yuv = img->get_YUVImage();
+
+  nsRefPtr<gfxSharedImageSurface> surfY =
+    gfxSharedImageSurface::Open(yuv.Ydata());
+  nsRefPtr<gfxSharedImageSurface> surfU =
+    gfxSharedImageSurface::Open(yuv.Udata());
+  nsRefPtr<gfxSharedImageSurface> surfV =
+    gfxSharedImageSurface::Open(yuv.Vdata());
+  mPictureRect = yuv.picture();
+
+  gfxIntSize size = surfY->GetSize();
+  gfxIntSize CbCrSize = surfU->GetSize();
+  if (size != mSize || mCbCrSize != CbCrSize || !mYUVTexture[0].IsAllocated()) {
+    
+    mSize = surfY->GetSize();
+    mCbCrSize = surfU->GetSize();
+
+    if (!mYUVTexture[0].IsAllocated()) {
+      mYUVTexture[0].Allocate(gl());
+      mYUVTexture[1].Allocate(gl());
+      mYUVTexture[2].Allocate(gl());
+    }
+
+    NS_ASSERTION(mYUVTexture[0].IsAllocated() &&
+                 mYUVTexture[1].IsAllocated() &&
+                 mYUVTexture[2].IsAllocated(),
+                 "Texture allocation failed!");
+
+    gl()->MakeCurrent();
+    SetClamping(gl(), mYUVTexture[0].GetTextureID());
+    SetClamping(gl(), mYUVTexture[1].GetTextureID());
+    SetClamping(gl(), mYUVTexture[2].GetTextureID());
+  }
+
+  PlanarYCbCrImage::Data data;
+  data.mYChannel = surfY->Data();
+  data.mYStride = surfY->Stride();
+  data.mYSize = surfY->GetSize();
+  data.mCbChannel = surfU->Data();
+  data.mCrChannel = surfV->Data();
+  data.mCbCrStride = surfU->Stride();
+  data.mCbCrSize = surfU->GetSize();
+
+  UploadYUVToTexture(gl(), data, &mYUVTexture[0], &mYUVTexture[1], &mYUVTexture[2]);
+
+  return true;
+}
+
 void
 ShadowImageLayerOGL::RenderLayer(int aPreviousFrameBuffer,
                                  const nsIntPoint& aOffset)
 {
   mOGLManager->MakeCurrent();
+  if (mImageID) {
+    ImageContainerParent::SetCompositorIDForImage(mImageID,
+                                                  mOGLManager->GetCompositorID());
+    PRUint32 imgVersion = ImageContainerParent::GetSharedImageVersion(mImageID);
+    if (imgVersion != mImageVersion) {
+      SharedImage* img = ImageContainerParent::GetSharedImage(mImageID);
+      if (!UploadTextureFromSharedImage(img)) return;
+      mImageVersion = imgVersion;
+    }
+  } 
 
   if (mTexImage) {
     ShaderProgramOGL *colorProgram =

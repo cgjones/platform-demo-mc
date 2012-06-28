@@ -176,6 +176,8 @@ public:
 
 private:
   bool Init(const SharedImage& aFront);
+  bool UploadTextureFromSharedImage(SharedImage* img);
+
 
   nsRefPtr<TextureImage> mTexImage;
   GLTexture mYUVTexture[3];

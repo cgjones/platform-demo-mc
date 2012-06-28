@@ -98,6 +98,8 @@ protected:
   size_t mMappedSize;
 };
 
+SharedMemory::SharedMemoryType OptimalShmemType();
+
 } // namespace ipc
 } // namespace mozilla
 
