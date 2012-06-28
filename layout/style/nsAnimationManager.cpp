@@ -64,7 +64,7 @@ ElementAnimations::GetPositionInIteration(TimeStamp aStartTime, TimeStamp aCurre
           ElementAnimation::LAST_NOTIFICATION_END) {
       aAnimation->mLastNotification = ElementAnimation::LAST_NOTIFICATION_END;
     if (aEa->CanPerformOnCompositorThread()) {
-      // We must invalidate because this animations was done on the compositor,
+      // We must invalidate because this animation was done on the compositor,
       // and we must now update for the final style.
       nsIFrame* frame = aEa->mElement->OwnerDoc()->GetShell()->GetPresContext()->
         GetRootPresContext()->PresShell()->GetRootFrame();
