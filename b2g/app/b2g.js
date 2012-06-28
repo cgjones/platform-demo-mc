@@ -459,3 +459,7 @@ pref("dom.disable_window_showModalDialog", true);
 
 // Turns on gralloc-based direct texturing for Gonk
 pref("gfx.gralloc.enabled", false);
+
+// Whether to animate simple opacity and transforms on the compositor
+pref("layers.offmainthreadcomposition.animate-opacity", true);
+pref("layers.offmainthreadcomposition.animate-transform", true);
