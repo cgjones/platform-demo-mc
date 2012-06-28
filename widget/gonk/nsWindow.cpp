@@ -380,7 +380,8 @@ nsWindow::Resize(PRInt32 aX,
     if (aRepaint && gWindowToRedraw)
         gWindowToRedraw->Invalidate(sVirtualBounds);
 
-    mGestureEventListener->GetAsyncPanZoomController()->UpdateViewport(aWidth, aHeight);
+    if (mGestureEventListener)
+        mGestureEventListener->GetAsyncPanZoomController()->UpdateViewport(aWidth, aHeight);
 
     return NS_OK;
 }
@@ -538,6 +539,7 @@ nsWindow::GetLayerManager(PLayersChild* aShadowManager,
                 new mozilla::layers::GeckoContentController()
             );
         mGestureEventListener = new mozilla::layers::GestureEventListener(asyncPanZoomController.get());
+        mGestureEventListener->GetAsyncPanZoomController()->UpdateViewport(mBounds.width, mBounds.height);
         asyncPanZoomController.forget();
 
         if (mCompositorParent) {
