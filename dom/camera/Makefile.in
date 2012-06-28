@@ -31,8 +31,6 @@ CPPSRCS += \
   GonkCameraHwMgr.cpp \
   GonkCameraPreview.cpp \
   CameraNativeWindow.cpp \
-  GonkRecorder.cpp \
-  GonkCameraSource.cpp \
   $(NULL)
 else
 CPPSRCS += \

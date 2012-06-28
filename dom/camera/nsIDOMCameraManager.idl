@@ -134,7 +134,7 @@ interface nsICameraTakePictureCallback : nsISupports
 [scriptable, function, uuid(ac43f123-529c-48d3-84dd-ad206b7aca9b)]
 interface nsICameraStartRecordingCallback : nsISupports
 {
-    void handleEvent(in DOMString filename);
+    void handleEvent(in nsIDOMMediaStream stream);
 };
 
 [scriptable, function, uuid(fb80db71-e315-42f0-9ea9-dd3dd312ed70)]
