@@ -15,8 +15,12 @@
 # include "mozilla/X11Util.h"
 #endif
 
+#include "GonkIOSurfaceImage.h"
+#include <ui/GraphicBuffer.h>
+
 using namespace mozilla::gfx;
 using namespace mozilla::gl;
+using namespace android;
 
 namespace mozilla {
 namespace layers {
@@ -795,8 +799,22 @@ bool ShadowImageLayerOGL::UploadTextureFromSharedImage(SharedImage* img)
   if (img == nsnull) {
     return false;
   }
-  if (img->type() != SharedImage::TYUVImage) {
+  if (img->type() != SharedImage::TYUVImage &&
+      img->type() != SharedImage::TSurfaceDescriptor) {
     return false;
+  }
+
+  if (img->type() == SharedImage::TSurfaceDescriptor &&
+      img->get_SurfaceDescriptor().type() == SurfaceDescriptor::TSurfaceDescriptorGralloc) {
+    const SurfaceDescriptorGralloc& desc = img->get_SurfaceDescriptor().get_SurfaceDescriptorGralloc();
+    sp<GraphicBuffer> graphicBuffer = GrallocBufferActor::GetFrom(desc);
+    mSize = gfxIntSize(graphicBuffer->getWidth(), graphicBuffer->getHeight());
+    if (!mTexture.IsAllocated()) {
+      mTexture.Allocate(gl());
+    }
+    gl()->fActiveTexture(LOCAL_GL_TEXTURE0);
+    gl()->BindExternalBuffer(mTexture.GetTextureID(), graphicBuffer->getNativeBuffer());
+    return true;
   }
 
   const YUVImage& yuv = img->get_YUVImage();
@@ -896,6 +914,26 @@ ShadowImageLayerOGL::RenderLayer(int aPreviousFrameBuffer,
       } while (mTexImage->NextTile());
     }
 
+  } else if (mTexture.IsAllocated()) {
+    gl()->MakeCurrent();
+    gl()->fActiveTexture(LOCAL_GL_TEXTURE0);
+
+    ShaderProgramOGL *program = mOGLManager->GetProgram(RGBAExternalLayerProgramType, GetMaskLayer());
+
+    gl()->ApplyFilterToBoundTexture(mFilter);
+
+    program->Activate();
+    program->SetLayerQuadRect(nsIntRect(0, 0, 
+                                        mSize.width, mSize.height));
+    program->SetLayerTransform(GetEffectiveTransform());
+    program->SetLayerOpacity(GetEffectiveOpacity());
+    program->SetRenderOffset(aOffset);
+    program->SetTextureUnit(0);
+    program->LoadMask(GetMaskLayer());
+
+    mOGLManager->BindAndDrawQuadWithTextureRect(program,
+                                                GetVisibleRegion().GetBounds(),
+                                                nsIntSize(mSize.width, mSize.height));
   } else {
     gl()->fActiveTexture(LOCAL_GL_TEXTURE0);
     gl()->fBindTexture(LOCAL_GL_TEXTURE_2D, mYUVTexture[0].GetTextureID());
@@ -944,6 +982,7 @@ ShadowImageLayerOGL::LoadAsTexture(GLuint aTextureUnit, gfxIntSize* aSize)
 void
 ShadowImageLayerOGL::CleanupResources()
 {
+  mTexture.Release();
   mYUVTexture[0].Release();
   mYUVTexture[1].Release();
   mYUVTexture[2].Release();

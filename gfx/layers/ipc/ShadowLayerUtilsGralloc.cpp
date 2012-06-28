@@ -170,6 +170,26 @@ GrallocBufferActor::Create(const gfxIntSize& aSize,
   return actor;
 }
 
+/*static*/ PGrallocBufferParent*
+GrallocBufferActor::Create(const gfxIntSize& aSize,
+                           const int32_t& aFormat,
+                           MaybeMagicGrallocBufferHandle* aOutHandle)
+{
+  GrallocBufferActor* actor = new GrallocBufferActor();
+  *aOutHandle = null_t();
+  sp<GraphicBuffer> buffer(
+    new GraphicBuffer(aSize.width, aSize.height, aFormat,
+                      GraphicBuffer::USAGE_SW_READ_OFTEN |
+                      GraphicBuffer::USAGE_SW_WRITE_OFTEN |
+                      GraphicBuffer::USAGE_HW_TEXTURE));
+  if (buffer->initCheck() != OK)
+    return actor;
+
+  actor->mGraphicBuffer = buffer;
+  *aOutHandle = MagicGrallocBufferHandle(buffer);
+  return actor;
+}
+
 bool
 ShadowLayerManager::PlatformDestroySharedSurface(SurfaceDescriptor* aSurface)
 {

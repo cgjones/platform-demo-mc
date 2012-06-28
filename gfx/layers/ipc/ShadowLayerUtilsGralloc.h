@@ -60,6 +60,7 @@ class GrallocBufferActor : public PGrallocBufferChild
                          , public PGrallocBufferParent
 {
   friend class ShadowLayerForwarder;
+  friend class ImageBridgeChild;
   typedef android::GraphicBuffer GraphicBuffer;
 
 public:
@@ -69,16 +70,21 @@ public:
   Create(const gfxIntSize& aSize, const gfxContentType& aContent,
          MaybeMagicGrallocBufferHandle* aOutHandle);
 
+  static PGrallocBufferParent*
+  Create(const gfxIntSize& aSize,
+         const int32_t& aFormat,
+         MaybeMagicGrallocBufferHandle* aOutHandle);
+
   static PGrallocBufferChild*
   Create();
+
+  static android::sp<GraphicBuffer>
+  GetFrom(const SurfaceDescriptorGralloc& aDescriptor);
 
 private:
   GrallocBufferActor() {}
 
   void InitFromHandle(const MagicGrallocBufferHandle& aHandle);
-
-  static android::sp<GraphicBuffer>
-  GetFrom(const SurfaceDescriptorGralloc& aDescriptor);
 
   android::sp<GraphicBuffer> mGraphicBuffer;
 };

@@ -2,13 +2,16 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+#include "base/basictypes.h"
 #include "VideoUtils.h"
 #include "GonkCameraHwMgr.h"
 #include "CameraPreview.h"
+#include "GonkIOSurfaceImage.h"
 
 #define DOM_CAMERA_LOG_LEVEL  3
 #include "CameraCommon.h"
 
+using namespace mozilla::layers;
 
 static const TrackID TRACK_AUDIO = 1;
 static const TrackID TRACK_VIDEO = 2;

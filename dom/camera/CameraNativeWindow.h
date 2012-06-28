@@ -14,7 +14,10 @@
 #include <utils/String8.h>
 #include <utils/threads.h>
 
-#include "ImageLayers.h"
+#include "mozilla/layers/ImageBridgeChild.h"
+#include "GonkIOSurfaceImage.h"
+
+using namespace mozilla::layers;
 
 namespace android {
 
@@ -95,6 +98,8 @@ private:
         // mGraphicBuffer points to the buffer allocated for this slot or is NULL
         // if no buffer has been allocated.
         sp<GraphicBuffer> mGraphicBuffer;
+
+        SurfaceDescriptor mSurfaceDescriptor;
 
         // BufferState represents the different states in which a buffer slot
         // can be.
@@ -190,8 +195,8 @@ class CameraGraphicBuffer : public mozilla::layers::GraphicBufferLocked {
 public:
   CameraGraphicBuffer(CameraNativeWindow* aNativeWindow,
                       uint32_t aIndex,
-                      GraphicBuffer* aGraphicBuffer)
-    : GraphicBufferLocked(aGraphicBuffer)
+                      SurfaceDescriptor aBuffer)
+    : GraphicBufferLocked(aBuffer)
     , mNativeWindow(aNativeWindow)
     , mIndex(aIndex)
     , mLocked(true)

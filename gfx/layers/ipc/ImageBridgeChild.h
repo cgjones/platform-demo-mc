@@ -95,6 +95,21 @@ public:
    */
   ImageContainerChild* CreateImageContainerChild(ImageContainer* aContainer);
 
+  virtual PGrallocBufferChild*
+  AllocPGrallocBuffer(const gfxIntSize&, const uint32_t&,
+                      MaybeMagicGrallocBufferHandle*) MOZ_OVERRIDE;
+
+  virtual bool
+  DeallocPGrallocBuffer(PGrallocBufferChild* actor) MOZ_OVERRIDE;
+
+  bool
+  AllocSurfaceDescriptorGralloc(const gfxIntSize& aSize,
+                                const uint32_t& aContent,
+                                SurfaceDescriptor* aBuffer);
+
+  bool
+  DeallocSurfaceDescriptorGralloc(const SurfaceDescriptor& aBuffer);
+
   // overriden from PImageBridgeChild
   PImageContainerChild* AllocPImageContainer(PRUint64*);
   // overriden from PImageBridgeChild

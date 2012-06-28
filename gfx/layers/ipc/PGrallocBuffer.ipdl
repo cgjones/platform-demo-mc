@@ -6,6 +6,7 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 include protocol PImageContainer;
+include protocol PImageBridge;
 include protocol PLayers;
 
 namespace mozilla {
@@ -18,7 +19,7 @@ namespace layers {
  * the PGrallocBuffer constructor).
  */
 async protocol PGrallocBuffer {
-  manager PLayers or PImageContainer;
+  manager PLayers or PImageContainer or PImageBridge;
 
   /** Gralloc buffers can be "owned" by either parent or child. */
 both:

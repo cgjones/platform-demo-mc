@@ -1,3 +1,5 @@
+#include "mozilla/layers/ShadowLayerUtilsGralloc.h"
+#include "mozilla/layers/ImageBridgeChild.h"
 #include "CameraNativeWindow.h"
 #include "nsDebug.h"
 
@@ -106,6 +108,8 @@ void CameraNativeWindow::freeBufferLocked(int i)
     if (mSlots[i].mGraphicBuffer != NULL) {
         mSlots[i].mGraphicBuffer.clear();
         mSlots[i].mGraphicBuffer = NULL;
+        ImageBridgeChild *ibc = ImageBridgeChild::GetSingleton();
+        ibc->DeallocSurfaceDescriptorGralloc(mSlots[i].mSurfaceDescriptor);
     }
     mSlots[i].mBufferState = BufferSlot::FREE;
 }
@@ -235,13 +239,19 @@ int CameraNativeWindow::dequeueBuffer(android_native_buffer_t** buffer)
 
     if (gbuf == NULL) {
         status_t error;
-        sp<GraphicBuffer> graphicBuffer( new GraphicBuffer( mDefaultWidth, mDefaultHeight, mPixelFormat, mUsage));
+        SurfaceDescriptor buffer;
+        ImageBridgeChild *ibc = ImageBridgeChild::GetSingleton();
+        ibc->AllocSurfaceDescriptorGralloc(gfxIntSize(mDefaultWidth, mDefaultHeight),
+                                           mPixelFormat,
+                                           &buffer);
+        sp<GraphicBuffer> graphicBuffer = GrallocBufferActor::GetFrom(buffer.get_SurfaceDescriptorGralloc());
         error = graphicBuffer->initCheck();
         if (error != NO_ERROR) {
             CNW_LOGE("dequeueBuffer: createGraphicBuffer failed with error %d",error);
             return error;
         }
         mSlots[buf].mGraphicBuffer = graphicBuffer;
+        mSlots[buf].mSurfaceDescriptor = buffer;
     }
     *buffer = mSlots[buf].mGraphicBuffer.get();
 
@@ -519,7 +529,7 @@ CameraNativeWindow::lockCurrentBuffer()
   mSlots[found].mBufferState = BufferSlot::RENDERING;
 
   nsRefPtr<GraphicBufferLocked> ret =
-    new CameraGraphicBuffer(this, found, mSlots[found].mGraphicBuffer.get());
+    new CameraGraphicBuffer(this, found, mSlots[found].mSurfaceDescriptor);
   return ret.forget();
 }
 

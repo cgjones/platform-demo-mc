@@ -10,6 +10,7 @@
 #include "gfxSharedImageSurface.h"
 #include "yuv_convert.h"
 #include "mozilla/layers/ImageContainerChild.h"
+#include "GonkIOSurfaceImage.h"
 
 #ifdef XP_MACOSX
 #include "nsCoreAnimationSupport.h"

@@ -201,9 +201,9 @@ void ImageBridgeChild::ConnectAsync(ImageBridgeParent* aParent)
 }
 
 PGrallocBufferChild*
-ImageContainerChild::AllocPGrallocBuffer(const gfxIntSize&,
-                                       const gfxContentType&,
-                                       MaybeMagicGrallocBufferHandle*)
+ImageBridgeChild::AllocPGrallocBuffer(const gfxIntSize&,
+                                      const uint32_t&,
+                                      MaybeMagicGrallocBufferHandle*)
 {
 #ifdef MOZ_HAVE_SURFACEDESCRIPTORGRALLOC
   return GrallocBufferActor::Create();
@@ -214,7 +214,7 @@ ImageContainerChild::AllocPGrallocBuffer(const gfxIntSize&,
 }
 
 bool
-ImageContainerChild::DeallocPGrallocBuffer(PGrallocBufferChild* actor)
+ImageBridgeChild::DeallocPGrallocBuffer(PGrallocBufferChild* actor)
 {
 #ifdef MOZ_HAVE_SURFACEDESCRIPTORGRALLOC
   delete actor;
@@ -223,6 +223,35 @@ ImageContainerChild::DeallocPGrallocBuffer(PGrallocBufferChild* actor)
   NS_RUNTIMEABORT("Um, how did we get here?");
   return false;
 #endif
+}
+
+bool
+ImageBridgeChild::AllocSurfaceDescriptorGralloc(const gfxIntSize& aSize,
+                                                const uint32_t& aFormat,
+                                                SurfaceDescriptor* aBuffer)
+{
+  MaybeMagicGrallocBufferHandle handle;
+  PGrallocBufferChild* gc = SendPGrallocBufferConstructor(aSize, aFormat, &handle);
+  if (handle.Tnull_t == handle.type()) {
+    PGrallocBufferChild::Send__delete__(gc);
+    return false;
+  }
+
+  GrallocBufferActor* gba = static_cast<GrallocBufferActor*>(gc);
+  gba->InitFromHandle(handle.get_MagicGrallocBufferHandle());
+
+  *aBuffer = SurfaceDescriptorGralloc(nsnull, gc);
+  return true;
+}
+
+bool
+ImageBridgeChild::DeallocSurfaceDescriptorGralloc(const SurfaceDescriptor& aBuffer)
+{
+  PGrallocBufferChild* gbp =
+    aBuffer.get_SurfaceDescriptorGralloc().bufferChild();
+  PGrallocBufferChild::Send__delete__(gbp);
+
+  return true;
 }
 
 ImageContainerChild* ImageBridgeChild::CreateImageContainerChild(ImageContainer* aContainer)

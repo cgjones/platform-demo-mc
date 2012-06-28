@@ -37,6 +37,31 @@ namespace {
   }
 }
 
+PGrallocBufferParent*
+ImageBridgeParent::AllocPGrallocBuffer(const gfxIntSize& aSize,
+                                       const uint32_t& aFormat,
+                                       MaybeMagicGrallocBufferHandle* aOutHandle)
+{
+#ifdef MOZ_HAVE_SURFACEDESCRIPTORGRALLOC
+  return GrallocBufferActor::Create(aSize, aFormat, aOutHandle);
+#else
+  NS_RUNTIMEABORT("No gralloc buffers for you");
+  return nsnull;
+#endif
+}
+
+bool
+ImageBridgeParent::DeallocPGrallocBuffer(PGrallocBufferParent* actor)
+{
+#ifdef MOZ_HAVE_SURFACEDESCRIPTORGRALLOC
+  delete actor;
+  return true;
+#else
+  NS_RUNTIMEABORT("Um, how did we get here?");
+  return false;
+#endif
+}
+
 PImageContainerParent* ImageBridgeParent::AllocPImageContainer(PRUint64* aID)
 {
   PRUint64 id = GenImageID();

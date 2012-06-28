@@ -3,6 +3,7 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 
+#include "base/basictypes.h"
 #include "nsDebug.h"
 #include "GonkCameraHwMgr.h"
 

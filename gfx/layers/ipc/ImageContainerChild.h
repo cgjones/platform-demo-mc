@@ -125,6 +125,7 @@ private:
   ImageContainer* mImageContainer;
   nsIntSize mSize;
   nsTArray<SharedImage*> mSharedImagePool;
+  nsTArray<nsRefPtr<Image> > mImageQueue;
   bool mStop; 
   int mActiveImageCount;
 };

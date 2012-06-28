@@ -4,6 +4,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 include protocol PImageContainer;
+include protocol PGrallocBuffer;
+
+include LayersSurfaces;
 
 using ImageHandle;
 
@@ -18,9 +21,12 @@ namespace layers {
 rpc protocol PImageBridge
 {
   manages PImageContainer;
+  manages PGrallocBuffer;
 
 parent:
-  
+  sync PGrallocBuffer(gfxIntSize size, uint32_t format)
+    returns (MaybeMagicGrallocBufferHandle handle);
+
   sync PImageContainer() returns (PRUint64 id);
 };
 

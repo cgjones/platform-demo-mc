@@ -11,7 +11,7 @@
 #include "mozilla/layers/PLayers.h"
 #include "mozilla/ReentrantMonitor.h"
 #include "mozilla/layers/SharedImageUtils.h"
-
+#include "GonkIOSurfaceImage.h"
 
 namespace mozilla {
 namespace layers {
@@ -26,11 +26,39 @@ ImageContainerChild::~ImageContainerChild()
 bool ImageContainerChild::RecvReleasedSharedImage(const SharedImage& aImage)
 {
   SharedImage* img = new SharedImage(aImage);
+  if (mImageQueue.Length() > 0) {
+    mImageQueue.RemoveElementAt(0);
+  }
   if (!AddSharedImageToPool(img) || mStop) {
-    DeallocSharedImageData(this, *img);
+    DestroySharedImage(aImage);
     delete img;
   }
   return true;
+}
+
+PGrallocBufferChild*
+ImageContainerChild::AllocPGrallocBuffer(const gfxIntSize&,
+                                      const gfxContentType&,
+                                      MaybeMagicGrallocBufferHandle*)
+{
+#ifdef MOZ_HAVE_SURFACEDESCRIPTORGRALLOC
+  return GrallocBufferActor::Create();
+#else
+  NS_RUNTIMEABORT("No gralloc buffers for you");
+  return nsnull;
+#endif
+}
+
+bool
+ImageContainerChild::DeallocPGrallocBuffer(PGrallocBufferChild* actor)
+{
+#ifdef MOZ_HAVE_SURFACEDESCRIPTORGRALLOC
+  delete actor;
+  return true;
+#else
+  NS_RUNTIMEABORT("Um, how did we get here?");
+  return false;
+#endif
 }
 
 bool ImageContainerChild::AllocBuffer(const gfxIntSize& aSize,
@@ -149,6 +177,10 @@ SharedImage* ImageContainerChild::CreateSharedImageFromData(Image* image)
     NS_ABORT_IF_FALSE(result->type() == SharedImage::TYUVImage,
                       "SharedImage type not set correctly");
     return result;
+  } else if (image->GetFormat() == Image::GONK_IO_SURFACE) {
+    GonkIOSurfaceImage* gonkImage = static_cast<GonkIOSurfaceImage*>(image);
+    SharedImage* result = new SharedImage(gonkImage->GetSurfaceDescriptor());
+    return result;
   } else {
     NS_RUNTIMEABORT("TODO: Only YUVImage is supported here right now.");
   }
@@ -232,11 +264,12 @@ SharedImage* ImageContainerChild::ImageToSharedImage(Image* aImage)
   NS_ABORT_IF_FALSE(InImageBridgeChildThread(),
                     "Should be in ImageBridgeChild thread.");
   SharedImage* img = PopSharedImageFromPool();
-    if (img) {
-      CopyDataIntoSharedImage(aImage, img);  
-    } else {
-      img = CreateSharedImageFromData(aImage);
-    }
+  if (img) {
+    CopyDataIntoSharedImage(aImage, img);
+  } else {
+    img = CreateSharedImageFromData(aImage);
+  }
+  mImageQueue.AppendElement(aImage);
   return img;
 }
 

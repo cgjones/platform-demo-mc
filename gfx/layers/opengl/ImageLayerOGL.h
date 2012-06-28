@@ -181,6 +181,7 @@ private:
 
   nsRefPtr<TextureImage> mTexImage;
   GLTexture mYUVTexture[3];
+  GLTexture mTexture;
   gfxIntSize mSize;
   gfxIntSize mCbCrSize;
   nsIntRect mPictureRect;
