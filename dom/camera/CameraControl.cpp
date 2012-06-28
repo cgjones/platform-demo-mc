@@ -392,7 +392,6 @@ NS_IMETHODIMP
 nsCameraControl::StartRecording(const JS::Value & aOptions, nsICameraStartRecordingCallback *onSuccess, nsICameraErrorCallback *onError, JSContext* cx)
 {
   /* 0 means not specified, use default value */
-  PRUint32 rotation = 0;
   PRUint32 width = 0;
   PRUint32 height = 0;
 
@@ -402,11 +401,6 @@ nsCameraControl::StartRecording(const JS::Value & aOptions, nsICameraStartRecord
     JSObject *options = JSVAL_TO_OBJECT(aOptions);
     jsval v;
 
-    if (JS_GetProperty(cx, options, "rotation", &v)) {
-      if (JSVAL_IS_INT(v)) {
-        rotation = JSVAL_TO_INT(v);
-      }
-    }
     if (JS_GetProperty(cx, options, "width", &v)) {
       if (JSVAL_IS_INT(v)) {
         width = JSVAL_TO_INT(v);
@@ -419,7 +413,7 @@ nsCameraControl::StartRecording(const JS::Value & aOptions, nsICameraStartRecord
     }
   }
 
-  nsCOMPtr<nsIRunnable> startRecordingTask = new StartRecordingTask(this, rotation, width, height, onSuccess, onError);
+  nsCOMPtr<nsIRunnable> startRecordingTask = new StartRecordingTask(this, width, height, onSuccess, onError);
   mCameraThread->Dispatch(startRecordingTask, NS_DISPATCH_NORMAL);
 
   return NS_OK;

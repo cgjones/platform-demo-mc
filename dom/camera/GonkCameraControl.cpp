@@ -15,19 +15,10 @@
 #include "GonkCameraHwMgr.h"
 #include "CameraCapabilities.h"
 #include "GonkCameraControl.h"
-#include "nsDirectoryServiceDefs.h" //for NS_GetSpecialDirectory
-//for open() of video file, 
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <errno.h>
 
 #define DOM_CAMERA_LOG_LEVEL  3
 #include "CameraCommon.h"
 
-#define DEFAULT_VIDEO_STORAGE_TO_TEMP_DIR   1
-#define MAX_VIDEO_FILE_NAME_LEN             200
-#define VIDEO_STORAGE_DIR                   "/sdcard/Movies"
-#define DEFAULT_VIDEO_FILE_NAME             "video.mp4"
 
 static const char* getKeyText(PRUint32 aKey)
 {
@@ -615,158 +606,16 @@ nsCameraControl::DoPullParameters(PullParametersTask *aPullParameters)
   return NS_OK;
 }
 
- 
-static int
-getFileNameWithDate(char *outstr, int maxsize)
-{
-  time_t t;
-  struct tm *tmp;
-  int actualLen;
-
-  t = time(NULL);
-  tmp = localtime(&t);
-  if (tmp == NULL) {
-    DOM_CAMERA_LOGE("localtime() failed\n");
-    return 0;
-  }
-
-  if ((actualLen = strftime(outstr, maxsize, "video_%F__%H-%M-%S.mp4", tmp)) == 0) {
-    DOM_CAMERA_LOGE("strftime() failed\n");
-    return 0;
-  }
-
-  return actualLen;
-}
-
-static int 
-CreateVideoFile(nsAString& aVideoFile)
-{
-  nsCOMPtr<nsIFile> f;
-  nsCOMPtr<nsIDOMFile> tempFile;
-  char fileName[MAX_VIDEO_FILE_NAME_LEN];
-  char fileName2[MAX_VIDEO_FILE_NAME_LEN];
-  char *videoFileAbsPath;
-  struct stat buffer;
-  int result;
-
-  if(getFileNameWithDate(fileName, MAX_VIDEO_FILE_NAME_LEN) == 0) {
-    DOM_CAMERA_LOGW("Failed to get file name based to date, using default name: %s\n", DEFAULT_VIDEO_FILE_NAME);
-    strncpy(fileName, DEFAULT_VIDEO_FILE_NAME, MAX_VIDEO_FILE_NAME_LEN);
-  }
-  DOM_CAMERA_LOGI("Video File Name: \"%s\" \n", fileName);
-
-  //Check if the video storage dir exists?
-  result = stat(VIDEO_STORAGE_DIR, &buffer);
-  if (0 == result) {
-    snprintf(fileName2, MAX_VIDEO_FILE_NAME_LEN, VIDEO_STORAGE_DIR"/%s", fileName);
-    videoFileAbsPath = fileName2;
-  }
-  else {
-    DOM_CAMERA_LOGW("%s stat failed with error: %d:%s\n",VIDEO_STORAGE_DIR,errno,strerror(errno));
-#if DEFAULT_VIDEO_STORAGE_TO_TEMP_DIR
-    nsCAutoString filePath;
-    DOM_CAMERA_LOGI("Attempting to use temp dir to store recorded file\n");
-    //default to temp dir
-    NS_GetSpecialDirectory(NS_OS_TEMP_DIR, getter_AddRefs(f));
-    if (!f) {
-      DOM_CAMERA_LOGE("Failed to get temp directory path\n");
-      return -1;
-    }
-    if (NS_FAILED(f->AppendNative(nsDependentCString(fileName)))) {
-      DOM_CAMERA_LOGE("Failed to append file name to temp directory\n");
-      return -1;
-    }
-    f->GetNativePath(filePath);
-    videoFileAbsPath = (char*)filePath.get();
-#else
-    return -1;
-#endif
-  }
-
-  DOM_CAMERA_LOGI("Opening video file: %s\n",videoFileAbsPath);
-  int fd = open(videoFileAbsPath, O_RDWR | O_CREAT, 0744);
-  if (fd < 0) {
-    DOM_CAMERA_LOGE("Couldn't create file %s with error %d:%s\n",videoFileAbsPath,errno,strerror(errno));
-  }
-  
-  aVideoFile.AssignASCII(fileName);
-  return fd;
-}
-
-#ifndef CHECK_SETARG
-#define CHECK_SETARG(x) {if(x) {DOM_CAMERA_LOGE(#x " failed\n"); return NS_ERROR_INVALID_ARG;}}
-#endif
-
-nsresult
-nsCameraControl::SetupRecording()
-{
-  //TODO: Need to do error checking
-  mRecorder = new GonkRecorder();
-  CHECK_SETARG(mRecorder->init());
-  //set all the params
-  CHECK_SETARG(mRecorder->setCameraHandle((int32_t)mHwHandle));
-  CHECK_SETARG(mRecorder->setVideoSource(VIDEO_SOURCE_DEFAULT));
-  CHECK_SETARG(mRecorder->setVideoSize(mVideoWidth,mVideoHeight));
-  //TODO: for now hard code the dimension...
-  //CHECK_SETARG(mRecorder->setVideoSize(640,480));
-  CHECK_SETARG(mRecorder->setVideoFrameRate(30));
-  CHECK_SETARG(mRecorder->setAudioSource(AUDIO_SOURCE_MIC));
-  //CHECK_SETARG(mRecorder->setVideoEncoder(VIDEO_ENCODER_H264));
-  CHECK_SETARG(mRecorder->setVideoEncoder(VIDEO_ENCODER_MPEG_4_SP));
-  CHECK_SETARG(mRecorder->setAudioEncoder(AUDIO_ENCODER_DEFAULT));
-  CHECK_SETARG(mRecorder->setOutputFormat(OUTPUT_FORMAT_MPEG_4));
-  int fd = CreateVideoFile(mVideoFile);
-  if (fd < 0) {
-    return NS_ERROR_FAILURE;
-  }
-  CHECK_SETARG(mRecorder->setOutputFile(fd,0,0));
-  CHECK_SETARG(mRecorder->prepare());
-  return NS_OK;
-}
-
-
 nsresult
 nsCameraControl::DoStartRecording(StartRecordingTask *aStartRecording)
 {
-//  ReentrantMonitorAutoEnter enter(mMonitor);
-//  mState = HW_STATE_PREVIEW;
-
-  //do something with the options
-  mVideoRotation = aStartRecording->mRotation;
-  mVideoWidth = aStartRecording->mWidth;
-  mVideoHeight = aStartRecording->mHeight;
-
-  mStartRecordingOnSuccessCb = aStartRecording->mOnSuccessCb;
-  mStartRecordingOnErrorCb = aStartRecording->mOnErrorCb;
-
-  if (SetupRecording() != NS_OK) {
-    return NS_ERROR_FAILURE;
-  }
-
-  //TODO: Need to do error checking
-  if(mRecorder->start() != OK) {
-    return NS_ERROR_FAILURE;
-  }
-
-  return NS_OK;
+  return NS_ERROR_NOT_IMPLEMENTED;
 }
 
 nsresult
 nsCameraControl::DoStopRecording(StopRecordingTask *aStopRecording)
 {
-//  mState = HW_STATE_PREVIEW; // keep preview ON
-
-  mRecorder->stop();
-
-  // dispatch the callbacks
-  nsCOMPtr<nsIRunnable> resultRunnable = new StartRecordingResult(mVideoFile, mStartRecordingOnSuccessCb);
-  if (NS_FAILED(NS_DispatchToMainThread(resultRunnable))) {
-    NS_WARNING("Failed to dispatch to main thread!");
-  }
-
-  delete mRecorder;
-  mRecorder = nsnull;
-  return NS_OK;
+  return NS_ERROR_NOT_IMPLEMENTED;
 }
 
 /*

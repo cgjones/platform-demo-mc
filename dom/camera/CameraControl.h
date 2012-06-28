@@ -15,7 +15,6 @@
 #include "nsDOMFile.h"
 #include "CameraPreview.h"
 #include "nsIDOMCameraManager.h"
-#include "GonkRecorder.h"
 
 #define DOM_CAMERA_LOG_LEVEL 3
 #include "CameraCommon.h"
@@ -85,8 +84,6 @@ public:
   void SetParameter(PRUint32 aKey, CameraRegion *aRegions, PRUint32 aLength);
   void PushParameters();
 
-  nsresult SetupRecording();
-
   void TakePictureComplete(PRUint8 *aData, PRUint32 aLength);
   void AutoFocusComplete(bool aSuccess);
   void ReceiveFrame(PRUint8 *aData, PRUint32 aLength);
@@ -117,10 +114,6 @@ protected:
   nsCOMPtr<CameraPreview>         mPreview;
   const char*                     mFileFormat;
   bool                            mDeferConfigUpdate;
-  PRUint32                        mVideoRotation;
-  PRUint32                        mVideoWidth;
-  PRUint32                        mVideoHeight;
-  nsString                        mVideoFile;
 
   nsCOMPtr<nsICameraAutoFocusCallback>      mAutoFocusOnSuccessCb;
   nsCOMPtr<nsICameraErrorCallback>          mAutoFocusOnErrorCb;
@@ -131,7 +124,6 @@ protected:
   nsCOMPtr<nsICameraShutterCallback>        mOnShutterCb;
 
   /* TODO: move this into a Gonk-specific class */
-  android::GonkRecorder*          mRecorder;
   android::CameraParameters       mParams;
   PRRWLock*                       mRwLock;
 };
@@ -348,8 +340,8 @@ protected:
 class StartRecordingResult : public nsRunnable
 {
 public:
-  StartRecordingResult(nsAString& aVideoFile, nsICameraStartRecordingCallback *onSuccess)
-    : mVideoFile(aVideoFile)
+  StartRecordingResult(nsIDOMMediaStream *aStream, nsICameraStartRecordingCallback *onSuccess)
+    : mStream(aStream)
     , mOnSuccessCb(onSuccess)
   { }
 
@@ -358,13 +350,13 @@ public:
     MOZ_ASSERT(NS_IsMainThread());
 
     if (mOnSuccessCb) {
-      mOnSuccessCb->HandleEvent(mVideoFile);
+      mOnSuccessCb->HandleEvent(mStream);
     }
     return NS_OK;
   }
 
 protected:
-  nsString mVideoFile;
+  nsCOMPtr<nsIDOMMediaStream> mStream;
   nsCOMPtr<nsICameraStartRecordingCallback> mOnSuccessCb;
 };
 
@@ -376,9 +368,8 @@ class StartRecordingTask : public nsRunnable
   friend class nsCameraControl;
 
 public:
-  StartRecordingTask(nsCameraControl *aCameraControl, PRUint32 aRotation, PRUint32 aWidth, PRUint32 aHeight, nsICameraStartRecordingCallback *onSuccess, nsICameraErrorCallback *onError)
-    : mRotation(aRotation)
-    , mWidth(aWidth)
+  StartRecordingTask(nsCameraControl *aCameraControl, PRUint32 aWidth, PRUint32 aHeight, nsICameraStartRecordingCallback *onSuccess, nsICameraErrorCallback *onError)
+    : mWidth(aWidth)
     , mHeight(aHeight)
     , mCameraControl(aCameraControl)
     , mOnSuccessCb(onSuccess)
@@ -400,7 +391,6 @@ public:
   }
 
 protected:
-  PRUint32 mRotation;
   PRUint32 mWidth;
   PRUint32 mHeight;
   nsCOMPtr<nsCameraControl> mCameraControl;
