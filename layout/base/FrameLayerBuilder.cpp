@@ -1585,6 +1585,9 @@ static void AddTransformFunctions(nsCSSValueList* aList,
 {
   for (const nsCSSValueList* curr = aList; curr; curr = curr->mNext) {
     const nsCSSValue& currElem = curr->mValue;
+    if (currElem.GetUnit() == eCSSUnit_None) {
+      continue;
+    }
     NS_ASSERTION(currElem.GetUnit() == eCSSUnit_Function,
                  "Stream should consist solely of functions!");
     nsCSSValue::Array* array = currElem.GetArrayValue();
@@ -1760,6 +1763,59 @@ ToTimingFunction(css::ComputedTimingFunction& aCTF) {
 }
 
 static void
+AddTransformTransitions(ElementTransitions* et, Layer* aLayer,
+                        const nsPoint& aOrigin)
+{
+  nsIFrame* frame = et->mElement->GetPrimaryFrame();
+  nsRect bounds = nsDisplayTransform::GetFrameBoundsForTransform(frame);
+  float scale = nsDeviceContext::AppUnitsPerCSSPixel();
+  gfxPoint3D offsetToTransformOrigin =
+    nsDisplayTransform::GetDeltaToMozTransformOrigin(frame, scale, &bounds);
+  gfxPoint3D offsetToPerspectiveOrigin =
+    nsDisplayTransform::GetDeltaToMozPerspectiveOrigin(frame, scale);
+  nscoord perspective = 0.0;
+  nsStyleContext* parentStyleContext = frame->GetStyleContext()->GetParent();
+  if (parentStyleContext) {
+    const nsStyleDisplay* disp = parentStyleContext->GetStyleDisplay();
+    if (disp && disp->mChildPerspective.GetUnit() == eStyleUnit_Coord) {
+      perspective = disp->mChildPerspective.GetCoordValue();
+    }
+  }
+
+  for (PRUint32 propIdx = 0; propIdx < et->mPropertyTransitions.Length(); propIdx++) {
+    ElementPropertyTransition* property = &et->mPropertyTransitions[propIdx];
+    if (property->mProperty != eCSSProperty_transform) {
+      continue;
+    }
+    if (property->IsRemovedSentinel()) {
+      continue;
+    }
+
+    InfallibleTArray<AnimationSegment> segments;
+
+    nsCSSValueList* list = property->mStartValue.GetCSSValueListValue();
+    InfallibleTArray<TransformFunction> fromFunctions;
+    AddTransformFunctions(list, fromFunctions);
+
+    list = property->mEndValue.GetCSSValueListValue();
+    InfallibleTArray<TransformFunction> toFunctions;
+    AddTransformFunctions(list, toFunctions);
+
+    segments.AppendElement(AnimationSegment(fromFunctions, toFunctions,
+                                            0, 1,
+                                            ToTimingFunction(property->mTimingFunction)));
+    aLayer->AddAnimation(Animation(property->mStartTime,
+                                   property->mDuration,
+                                   segments,
+                                   1,
+                                   NS_STYLE_ANIMATION_DIRECTION_NORMAL,
+                                   TransformData(aOrigin, offsetToTransformOrigin,
+                                                 offsetToPerspectiveOrigin,
+                                                 bounds, perspective)));
+  }
+}
+
+static void
 AddTransformAnimations(ElementAnimations* ea, Layer* aLayer,
                        const nsPoint& aOrigin)
 {
@@ -1793,7 +1849,7 @@ AddTransformAnimations(ElementAnimations* ea, Layer* aLayer,
       if (property->mProperty != eCSSProperty_transform) {
         continue;
       }
-      
+
       for (PRUint32 segIdx = 0; segIdx < property->mSegments.Length(); segIdx++) {
         AnimationPropertySegment* segment = &property->mSegments[segIdx];
         nsCSSValueList* list = segment->mFromValue.GetCSSValueListValue();
@@ -1821,6 +1877,32 @@ AddTransformAnimations(ElementAnimations* ea, Layer* aLayer,
                                                    offsetToPerspectiveOrigin,
                                                    bounds, perspective)));
      }
+  }
+}
+
+static void
+AddOpacityTransitions(ElementTransitions* et, Layer* aLayer) {
+  for (PRUint32 propIdx = 0; propIdx < et->mPropertyTransitions.Length(); propIdx++) {
+    ElementPropertyTransition* property = &et->mPropertyTransitions[propIdx];
+    if (property->mProperty != eCSSProperty_opacity) {
+      continue;
+    }
+    if (property->IsRemovedSentinel()) {
+      continue;
+    }
+    InfallibleTArray<AnimationSegment> segments;
+
+    segments.AppendElement(AnimationSegment(Opacity(property->mStartValue.GetFloatValue()),
+                                            Opacity(property->mEndValue.GetFloatValue()),
+                                            0,
+                                            1,
+                                            ToTimingFunction(property->mTimingFunction)));
+    aLayer->AddAnimation(Animation(property->mStartTime,
+                                   property->mDuration,
+                                   segments,
+                                   1,
+                                   NS_STYLE_ANIMATION_DIRECTION_NORMAL,
+                                   null_t()));
   }
 }
 
@@ -1940,22 +2022,36 @@ ContainerState::ProcessDisplayItems(const nsDisplayList& aList,
         continue;
       }
 
+      ownLayer->ClearAnimations();
+      bool hasOMTATransform = false;
       ElementAnimations* animations = nsnull;
       if (content) {
         animations = nsAnimationManager::GetAnimations(content);
       }
       if (animations && animations->CanPerformOnCompositorThread()) {
         if (item->GetType() == nsDisplayItem::TYPE_OPACITY) {
-          ownLayer->ClearAnimations();
           AddOpacityAnimations(animations, ownLayer);
         } else if (item->GetType() == nsDisplayItem::TYPE_TRANSFORM) {
-          ownLayer->ClearAnimations();
           AddTransformAnimations(animations, ownLayer, item->ToReferenceFrame());
+          hasOMTATransform = true;
+        }
+      }
+
+      ElementTransitions* transitions = nsnull;
+      if (content) {
+        transitions = nsTransitionManager::GetTransitions(content);
+      }
+      if (transitions && transitions->CanPerformOnCompositorThread()) {
+        if (item->GetType() == nsDisplayItem::TYPE_OPACITY) {
+          AddOpacityTransitions(transitions, ownLayer);
+        } else if (item->GetType() == nsDisplayItem::TYPE_TRANSFORM) {
+          AddTransformTransitions(transitions, ownLayer, item->ToReferenceFrame());
+          hasOMTATransform = true;
         }
       }
       // If it's not a ContainerLayer, we need to apply the scale transform
       // ourselves.
-      else if (!ownLayer->AsContainerLayer()) {
+      if (!hasOMTATransform && !ownLayer->AsContainerLayer()) {
         // The layer's current transform is applied first, then the result is scaled.
         gfx3DMatrix transform = ownLayer->GetTransform()*
             gfx3DMatrix::ScalingMatrix(mParameters.mXScale, mParameters.mYScale, 1.0f);
