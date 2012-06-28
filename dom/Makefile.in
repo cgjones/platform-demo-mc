@@ -81,6 +81,12 @@ DIRS += \
   $(NULL)
 endif
 
+ifdef MOZ_B2G_CAMERA
+DIRS += \
+  camera \
+  $(NULL)
+endif
+
 # bindings/test is here, because it needs to build after bindings/, and
 # we build subdirectories before ourselves.
 TEST_DIRS += \
