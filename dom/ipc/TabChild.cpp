@@ -56,6 +56,7 @@
 #include "nsIFrame.h"
 #include "nsIView.h"
 #include "nsEventListenerManager.h"
+#include "nsPrintfCString.h"
 #include "PCOMContentPermissionRequestChild.h"
 #include "xpcpublic.h"
 #include "IndexedDBChild.h"
@@ -528,6 +529,34 @@ TabChild::~TabChild()
       mTabChildGlobal->mTabChild = nsnull;
     }
 }
+
+
+bool
+TabChild::RecvHACK_UpdateFrame(const nsIntRect& aDisplayPort,
+                               const nsIntPoint& aScrollOffset,
+                               const gfxSize& aResolution)
+{
+    nsCString data;
+    // XXX: When we start removing browser.js code, we can stop doing weird
+    // stringifying like this.
+    data += nsPrintfCString("{ \"x\" : %d", aScrollOffset.x);
+    data += nsPrintfCString(", \"y\" : %d", aScrollOffset.y);
+    // We don't treat the x and y scales any differently for this
+    // semi-platform-specific code.
+    data += nsPrintfCString(", \"zoom\" : %f", aResolution.width);
+    data += nsPrintfCString(", \"displayPort\" : ");
+      data += nsPrintfCString("{ \"left\" : %d", aDisplayPort.X());
+      data += nsPrintfCString(", \"top\" : %d", aDisplayPort.Y());
+      data += nsPrintfCString(", \"right\" : %d", aDisplayPort.XMost());
+      data += nsPrintfCString(", \"bottom\" : %d", aDisplayPort.YMost());
+      data += nsPrintfCString(", \"resolution\" : %f", aResolution.width);
+      data += nsPrintfCString(" }");
+    data += nsPrintfCString(" }");
+
+    return RecvAsyncMessage(NS_LITERAL_STRING("Viewport:Change"),
+                            NS_ConvertUTF8toUTF16(data));
+}
+
 
 bool
 TabChild::RecvLoadURL(const nsCString& uri)

@@ -9,6 +9,7 @@
 #include "android/log.h"
 #include "ui/FramebufferNativeWindow.h"
 
+#include "mozilla/dom/TabParent.h"
 #include "mozilla/Hal.h"
 #include "mozilla/layers/CompositorParent.h"
 #include "mozilla/layers/AsyncPanZoomController.h"
@@ -121,6 +122,23 @@ static void *frameBufferWatcher(void *) {
     return NULL;
 }
 
+// FIXME/HACK HACK HACK: not gonk-specific, and shouldn't assume cross
+// process.
+class CrossProcessContentController : public GeckoContentController {
+    virtual void SendViewportChange(const FrameMetrics& aFrameMetrics,
+                                    const nsIntRect& aDisplayPort) MOZ_OVERRIDE
+
+    {
+        TabParent::HACK_UpdateFrame(aFrameMetrics, aDisplayPort);
+    }
+
+    virtual void SendGestureEvent(const nsAString& aTopic,
+                                  const nsIntPoint& aPoint) MOZ_OVERRIDE
+    {
+        // No-op
+    }
+};
+
 } // anonymous namespace
 
 nsRefPtr<mozilla::layers::GestureEventListener> nsWindow::mGestureEventListener;
@@ -151,7 +169,7 @@ nsWindow::nsWindow()
         gNativeWindow = new android::FramebufferNativeWindow();
 
         nsIntSize screenSize;
-        bool gotFB = Framebuffer::GetSize(&screenSize);
+        DebugOnly<bool> gotFB = Framebuffer::GetSize(&screenSize);
         MOZ_ASSERT(gotFB);
         gScreenBounds = nsIntRect(nsIntPoint(0, 0), screenSize);
 
@@ -534,11 +552,9 @@ nsWindow::GetLayerManager(PLayersChild* aShadowManager,
     if (sUsingOMTC) {
         CreateCompositor();
 
-        nsRefPtr<mozilla::layers::AsyncPanZoomController> asyncPanZoomController =
-            new mozilla::layers::AsyncPanZoomController(
-                new mozilla::layers::GeckoContentController()
-            );
-        mGestureEventListener = new mozilla::layers::GestureEventListener(asyncPanZoomController.get());
+        nsRefPtr<AsyncPanZoomController> asyncPanZoomController =
+            new AsyncPanZoomController(new CrossProcessContentController());
+        mGestureEventListener = new GestureEventListener(asyncPanZoomController.get());
         mGestureEventListener->GetAsyncPanZoomController()->UpdateViewport(mBounds.width, mBounds.height);
         asyncPanZoomController.forget();
 
@@ -820,3 +836,4 @@ nsScreenManagerGonk::GetNumberOfScreens(PRUint32 *aNumberOfScreens)
     *aNumberOfScreens = 1;
     return NS_OK;
 }
+

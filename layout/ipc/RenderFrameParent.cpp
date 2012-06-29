@@ -5,6 +5,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+#include "mozilla/dom/TabParent.h"
 #include "mozilla/layers/ShadowLayersParent.h"
 
 #include "BasicLayers.h"
@@ -24,6 +25,7 @@
 #include "nsViewportFrame.h"
 
 typedef nsContentView::ViewConfig ViewConfig;
+using namespace mozilla::dom;
 using namespace mozilla::layers;
 
 namespace mozilla {
@@ -496,6 +498,10 @@ RenderFrameParent::ShadowLayersUpdated(ShadowLayersParent* aLayerTree,
                                        bool isFirstPaint)
 {
   mFrameLoader->SetCurrentRemoteFrame(this);
+
+
+  TabParent::HACK_LastPainted(Manager());
+
 
   // View map must only contain views that are associated with the current
   // shadow layer tree. We must always update the map when shadow layers

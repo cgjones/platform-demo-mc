@@ -160,6 +160,10 @@ public:
     NS_DECL_NSIDIALOGCREATOR
     NS_DECL_NSITABCHILD
 
+    virtual bool RecvHACK_UpdateFrame(const nsIntRect& aDisplayPort,
+                                      const nsIntPoint& aScrollOffset,
+                                      const gfxSize& aResolution);
+
     virtual bool RecvLoadURL(const nsCString& uri);
     virtual bool RecvShow(const nsIntSize& size);
     virtual bool RecvUpdateDimensions(const nsRect& rect, const nsIntSize& size);
