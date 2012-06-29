@@ -159,6 +159,9 @@
 #ifdef MOZ_B2G_BT
 @BINPATH@/components/dom_bluetooth.xpt
 #endif
+#ifdef MOZ_B2G_CAMERA
+@BINPATH@/components/dom_camera.xpt
+#endif
 @BINPATH@/components/dom_canvas.xpt
 @BINPATH@/components/dom_contacts.xpt
 @BINPATH@/components/dom_core.xpt
