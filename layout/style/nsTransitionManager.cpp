@@ -120,6 +120,28 @@ ElementTransitions::EnsureStyleRuleFor(TimeStamp aRefreshTime)
 }
 
 bool
+ElementTransitions::HasStartedTransitionSinceLastTick() {
+  bool transitionsStarted = false;
+  for (PRUint32 i = 0; i < mPropertyTransitions.Length(); ++i) {
+    ElementPropertyTransition& pt = mPropertyTransitions[i];
+    if (!pt.mHaveInvalidatedForTransitionStart && TimeStamp::Now() > pt.mStartTime) {
+   printf("\n will invalidate, transition started\n");
+      pt.mHaveInvalidatedForTransitionStart = true;
+      transitionsStarted = true;
+    }
+  }
+  return transitionsStarted;
+}
+
+bool
+ElementPropertyTransition::CanPerformOnCompositor(mozilla::dom::Element* aElement,
+                                                  TimeStamp aTime) const {
+  return css::CommonElementAnimationData::
+    CanAnimatePropertyOnCompositor(aElement, mProperty) && !IsRemovedSentinel() &&
+    aTime > mStartTime && aTime < mStartTime + mDuration;
+}
+
+bool
 ElementTransitions::CanPerformOnCompositorThread() const
 {
   return false;
@@ -498,6 +520,9 @@ nsTransitionManager::ConsiderStartingTransition(nsCSSProperty aProperty,
   pt.mStartTime = mostRecentRefresh + TimeDuration::FromMilliseconds(delay);
   pt.mDuration = TimeDuration::FromMilliseconds(duration);
   pt.mTimingFunction.Init(tf);
+  if (delay > 0) {
+    pt.mHaveInvalidatedForTransitionStart = false;
+  }
   if (!aElementTransitions) {
     aElementTransitions =
       GetElementTransitions(aElement, aNewStyleContext->GetPseudoType(),
@@ -770,10 +795,16 @@ nsTransitionManager::WillRefresh(mozilla::TimeStamp aTime)
 
       // Do not animate if the compositor is handling this transition, but we
       // must restyle if one of the transition properties finishes.
-      if (!et->CanPerformOnCompositorThread() || transitionFinished) {
+      bool performOnCompositor = et->CanPerformOnCompositorThread();
+      if (!performOnCompositor || transitionFinished) {
         nsRestyleHint hint = et->mElementProperty == nsGkAtoms::transitionsProperty ?
           eRestyle_Self : eRestyle_Subtree;
         mPresContext->PresShell()->RestyleForAnimation(et->mElement, hint);
+      }
+
+      if (performOnCompositor && et->HasStartedTransitionSinceLastTick()) {
+        nsIFrame* frame = mPresContext->GetRootPresContext()->PresShell()->GetRootFrame();
+        frame->InvalidateWithFlags(frame->GetRect(), nsIFrame::INVALIDATE_NO_THEBES_LAYERS);
       }
 
       if (et->mPropertyTransitions.IsEmpty()) {

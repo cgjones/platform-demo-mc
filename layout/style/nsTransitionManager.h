@@ -22,6 +22,9 @@ struct nsTransition;
 
 struct ElementPropertyTransition
 {
+  ElementPropertyTransition()
+    : mHaveInvalidatedForTransitionStart(true) {}
+
   nsCSSProperty mProperty;
   nsStyleAnimation::Value mStartValue, mEndValue;
   mozilla::TimeStamp mStartTime; // actual start plus transition delay
@@ -62,6 +65,14 @@ struct ElementPropertyTransition
     // assign the null time stamp
     mStartTime = mozilla::TimeStamp();
   }
+
+  bool CanPerformOnCompositor(mozilla::dom::Element* aElement,
+                              mozilla::TimeStamp aTime) const;
+
+  // If a transition has a delay, we want to invalidate after the delay is over
+  // to actually start the transition on the compositor.  This flag allows us to
+  // not invalidate for every refresh driver tick.
+  bool mHaveInvalidatedForTransitionStart;
 };
 
 struct ElementTransitions : public mozilla::css::CommonElementAnimationData
@@ -87,6 +98,9 @@ struct ElementTransitions : public mozilla::css::CommonElementAnimationData
   nsRefPtr<mozilla::css::AnimValuesStyleRule> mStyleRule;
   // The refresh time associated with mStyleRule.
   mozilla::TimeStamp mStyleRuleRefreshTime;
+
+  // Check if any transitions have started since the last refresh driver tick.
+  bool HasStartedTransitionSinceLastTick();
 };
 
 

@@ -1787,7 +1787,7 @@ AddTransformTransitions(ElementTransitions* et, Layer* aLayer,
     if (property->mProperty != eCSSProperty_transform) {
       continue;
     }
-    if (property->IsRemovedSentinel()) {
+    if (!property->CanPerformOnCompositor(et->mElement, TimeStamp::Now())) {
       continue;
     }
 
@@ -1887,7 +1887,7 @@ AddOpacityTransitions(ElementTransitions* et, Layer* aLayer) {
     if (property->mProperty != eCSSProperty_opacity) {
       continue;
     }
-    if (property->IsRemovedSentinel()) {
+    if (!property->CanPerformOnCompositor(et->mElement, TimeStamp::Now())) {
       continue;
     }
     InfallibleTArray<AnimationSegment> segments;

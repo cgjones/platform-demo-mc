@@ -290,9 +290,9 @@ CreateCSSValueList(InfallibleTArray<TransformFunction>& aFunctions)
       case TransformFunction::TTranslation:
       {
         arr = nsStyleAnimation::AppendTransformFunction(eCSSKeyword_translate3d, resultTail);
-        arr->Item(1).SetFloatValue(aFunctions[i].get_Translation().x(), eCSSUnit_Number);
-        arr->Item(2).SetFloatValue(aFunctions[i].get_Translation().y(), eCSSUnit_Number);
-        arr->Item(3).SetFloatValue(aFunctions[i].get_Translation().z(), eCSSUnit_Number);
+        arr->Item(1).SetFloatValue(aFunctions[i].get_Translation().x(), eCSSUnit_Pixel);
+        arr->Item(2).SetFloatValue(aFunctions[i].get_Translation().y(), eCSSUnit_Pixel);
+        arr->Item(3).SetFloatValue(aFunctions[i].get_Translation().z(), eCSSUnit_Pixel);
         break;
       }
       case TransformFunction::TSkew:
