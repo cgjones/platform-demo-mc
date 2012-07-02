@@ -62,15 +62,15 @@ static PBrowserParent* sCurrentTab;
 NS_IMPL_ISUPPORTS3(TabParent, nsITabParent, nsIAuthPromptProvider, nsISecureBrowserUI)
 
 /*static*/ void
-TabParent::HACK_UpdateFrame(const FrameMetrics& aFrameMetrics,
-                            const nsIntRect& aDisplayPort)
+TabParent::HACK_UpdateFrame(const FrameMetrics& aFrameMetrics)
 {
   if (sCurrentTab) {
     // XXX why can't I use FrameMetrics in PBrowser
     unused << sCurrentTab->SendHACK_UpdateFrame(
-      aDisplayPort,
+      aFrameMetrics.mDisplayPort,
       aFrameMetrics.mViewportScrollOffset,
-      aFrameMetrics.mResolution);
+      aFrameMetrics.mResolution,
+      aFrameMetrics.mViewport);
   } else {
     printf_stderr("WARNING: no current tab\n");
   }

@@ -54,7 +54,8 @@ rpc protocol PBrowser
 child:
     HACK_UpdateFrame(nsIntRect displayPort,
                      nsIntPoint scrollOffset,
-                     gfxSize resolution);
+                     gfxSize resolution,
+                     nsIntRect screenSize);
 
 
 both:

@@ -162,7 +162,8 @@ public:
 
     virtual bool RecvHACK_UpdateFrame(const nsIntRect& aDisplayPort,
                                       const nsIntPoint& aScrollOffset,
-                                      const gfxSize& aResolution);
+                                      const gfxSize& aResolution,
+                                      const nsIntRect& aScreenSize);
 
     virtual bool RecvLoadURL(const nsCString& uri);
     virtual bool RecvShow(const nsIntSize& size);

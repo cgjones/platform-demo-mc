@@ -46,8 +46,7 @@ class TabParent : public PBrowserParent
     typedef mozilla::layers::FrameMetrics FrameMetrics;
 
 public:
-    static void HACK_UpdateFrame(const FrameMetrics& aFrameMetrics,
-                                 const nsIntRect& aDisplayPort);
+    static void HACK_UpdateFrame(const FrameMetrics& aFrameMetrics);
     static void HACK_LastPainted(PBrowserParent* aBrowser);
 
     TabParent();

@@ -354,42 +354,41 @@ function dump(a) {
   Cc["@mozilla.org/consoleservice;1"].getService(Ci.nsIConsoleService).logStringMessage(a);
 }
 
+var asyncPanZoom;
 const AsyncPanZoom = {
   init: function() {
-    Services.obs.addObserver(this, "Viewport:Change", false);
-    Services.obs.addObserver(this, "Viewport:ScreenSize", false);
+    asyncPanZoom = this;
+
     Services.obs.addObserver(this, "Gesture:SingleTap", false);
     Services.obs.addObserver(this, "Gesture:CancelTouch", false);
+
+    addMessageListener("Viewport:Change", function(data) {
+      dump("************MESSAGE " + data.json.toSource());
+      let aViewport = data.json;
+
+      asyncPanZoom.screenWidth = aViewport.screenSize.width;
+      asyncPanZoom.screenHeight = aViewport.screenSize.height;
+
+      // Transform coordinates based on zoom
+      let x = aViewport.x / aViewport.zoom;
+      let y = aViewport.y / aViewport.zoom;
+
+      // Set scroll position
+      let win = content;
+      win.QueryInterface(Ci.nsIInterfaceRequestor).getInterface(Ci.nsIDOMWindowUtils).setScrollPositionClampingScrollPortSize(
+          asyncPanZoom.screenWidth / aViewport.zoom, asyncPanZoom.screenHeight / aViewport.zoom);
+      win.scrollTo(x, y);
+      asyncPanZoom.userScrollPos = { x: win.scrollX, y: win.scrollY };
+      asyncPanZoom.setResolution(aViewport.zoom, false);
+
+      if (aViewport.displayPort)
+        asyncPanZoom.setDisplayPort(aViewport.displayPort);
+    });
   },
 
   observe: function(aSubject, aTopic, aData) {
     dump("*************OBSERVE: " + aTopic);
     switch (aTopic) {
-      case 'Viewport:ScreenSize':
-        let newSize = JSON.parse(aData);
-        this.screenWidth = aData.x;
-        this.screenHeight = aData.y;
-        break;
-
-      case 'Viewport:Change':
-
-        let aViewport = JSON.parse(aData);
-        // Transform coordinates based on zoom
-        let x = aViewport.x / aViewport.zoom;
-        let y = aViewport.y / aViewport.zoom;
-
-        // Set scroll position
-        let win = content;
-        win.QueryInterface(Ci.nsIInterfaceRequestor).getInterface(Ci.nsIDOMWindowUtils).setScrollPositionClampingScrollPortSize(
-            this.screenWidth / aViewport.zoom, this.screenHeight / aViewport.zoom);
-        win.scrollTo(x, y);
-        this.userScrollPos.x = win.scrollX;
-        this.userScrollPos.y = win.scrollY;
-        this.setResolution(aViewport.zoom, false);
-
-        if (aViewport.displayPort)
-          this.setDisplayPort(aViewport.displayPort);
-        break;
       case 'Gesture:CancelTouch':
         //this._cancelTapHighlight();
         break;
@@ -544,22 +543,34 @@ const AsyncPanZoom = {
     // these sets of values, to ensure that they are normalized to the same coordinate
     // space first.
 
-    let element = this.browser.contentDocument.documentElement;
+    // dRdR
+    //let element = content.contentDocument;
+    //dump(content.document.toSource());
+    //dump(JSON.stringify(content.document));
+
+    if (!content.document)
+      return;
+
+    let element = content.document.documentElement;
+    //let thing3 = content.document.documentElement;
     if (!element)
       return;
+
+    dump("*****GOT PAST ELEMENT");
 
     // we should never be drawing background tabs at resolutions other than the user-
     // visible zoom. for foreground tabs, however, if we are drawing at some other
     // resolution, we need to set the resolution as specified.
-    let cwu = window.top.QueryInterface(Ci.nsIInterfaceRequestor).getInterface(Ci.nsIDOMWindowUtils);
-    if (BrowserApp.selectedTab == this) {
+    // dRdR: window.top = content
+    let cwu = content.QueryInterface(Ci.nsIInterfaceRequestor).getInterface(Ci.nsIDOMWindowUtils);
+    //if (BrowserApp.selectedTab == this) {
       if (resolution != this._drawZoom) {
         this._drawZoom = resolution;
         cwu.setResolution(resolution, resolution);
       }
-    } else if (resolution != zoom) {
-      dump("Warning: setDisplayPort resolution did not match zoom for background tab!");
-    }
+    //} else if (resolution != zoom) {
+    //  dump("Warning: setDisplayPort resolution did not match zoom for background tab!");
+    //}
 
     // Finally, we set the display port, taking care to convert everything into the CSS-pixel
     // coordinate space, because that is what the function accepts. Also we have to fudge the

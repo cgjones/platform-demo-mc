@@ -125,11 +125,10 @@ static void *frameBufferWatcher(void *) {
 // FIXME/HACK HACK HACK: not gonk-specific, and shouldn't assume cross
 // process.
 class CrossProcessContentController : public GeckoContentController {
-    virtual void SendViewportChange(const FrameMetrics& aFrameMetrics,
-                                    const nsIntRect& aDisplayPort) MOZ_OVERRIDE
+    virtual void SendViewportChange(const FrameMetrics& aFrameMetrics) MOZ_OVERRIDE
 
     {
-        TabParent::HACK_UpdateFrame(aFrameMetrics, aDisplayPort);
+        TabParent::HACK_UpdateFrame(aFrameMetrics);
     }
 
     virtual void SendGestureEvent(const nsAString& aTopic,

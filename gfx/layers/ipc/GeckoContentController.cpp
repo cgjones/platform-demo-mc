@@ -13,8 +13,7 @@
 namespace mozilla {
 namespace layers {
 
-void GeckoContentController::SendViewportChange(const FrameMetrics& aFrameMetrics,
-                                                const nsIntRect& aDisplayPort) {
+void GeckoContentController::SendViewportChange(const FrameMetrics& aFrameMetrics) {
   nsCString data;
   // XXX: When we start removing browser.js code, we can stop doing weird
   // stringifying like this.
@@ -24,11 +23,15 @@ void GeckoContentController::SendViewportChange(const FrameMetrics& aFrameMetric
   // semi-platform-specific code.
   data += nsPrintfCString(", \"zoom\" : %f", aFrameMetrics.mResolution.width);
   data += nsPrintfCString(", \"displayPort\" : ");
-    data += nsPrintfCString("{ \"left\" : %d", aDisplayPort.X());
-    data += nsPrintfCString(", \"top\" : %d", aDisplayPort.Y());
-    data += nsPrintfCString(", \"right\" : %d", aDisplayPort.XMost());
-    data += nsPrintfCString(", \"bottom\" : %d", aDisplayPort.YMost());
+    data += nsPrintfCString("{ \"left\" : %d", aFrameMetrics.mDisplayPort.X());
+    data += nsPrintfCString(", \"top\" : %d", aFrameMetrics.mDisplayPort.Y());
+    data += nsPrintfCString(", \"right\" : %d", aFrameMetrics.mDisplayPort.XMost());
+    data += nsPrintfCString(", \"bottom\" : %d", aFrameMetrics.mDisplayPort.YMost());
     data += nsPrintfCString(", \"resolution\" : %f", aFrameMetrics.mResolution.width);
+    data += nsPrintfCString(" }");
+  data += nsPrintfCString(", \"screenSize\" :");
+    data += nsPrintfCString("{ \"width\" : %d", aFrameMetrics.mViewport.width);
+    data += nsPrintfCString(", \"height\" : %d", aFrameMetrics.mViewport.height);
     data += nsPrintfCString(" }");
   data += nsPrintfCString(" }");
   nsCOMPtr<nsIRunnable> viewportEvent = new ViewportEvent(

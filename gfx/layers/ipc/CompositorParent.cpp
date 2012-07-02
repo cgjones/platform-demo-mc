@@ -556,7 +556,7 @@ CompositorParent::ApplyAsyncPanZoom(Layer* aLayer)
   gfx3DMatrix treeTransform;
   gfxPoint reverseViewTranslation;
 
-  if (metrics.IsScrollable() || true) {
+  if (metrics.IsScrollable()) {
     mAsyncPanZoomController->GetContentTransformForFrame(metrics,
                                                          transform,
                                                          mWidgetSize,
