@@ -63,7 +63,8 @@ struct Opacity { float value; };
 struct RotationX { float radians; };
 struct RotationY { float radians; };
 struct RotationZ { float radians; };
-struct Rotation {
+struct Rotation { float radians; };
+struct Rotation3D {
   float x;
   float y;
   float z;
@@ -88,6 +89,7 @@ union TransformFunction {
   RotationY;
   RotationZ;
   Rotation;
+  Rotation3D;
   Scale;
   SkewX;
   SkewY;
