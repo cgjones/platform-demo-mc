@@ -564,8 +564,10 @@ CompositorParent::ApplyAsyncPanZoom(Layer* aLayer)
                                                          &reverseViewTranslation);
     ShadowLayer* shadow = aLayer->AsShadowLayer();
     shadow->SetShadowTransform(transform * treeTransform);
-    printf("####### [CompositorParent] Frame is scrollable\n");
-    printf("####### x: %d, y: %d\n", metrics.mDisplayPort.width, metrics.mDisplayPort.height);
+    //TranslateFixedLayers(aLayer, reverseViewTranslation);
+    char wtf[512];
+    sprintf(wtf, "################## FRAME IS SCROLLABLE %d %d %d %d", metrics.mViewportScrollOffset.x, metrics.mViewportScrollOffset.y, metrics.mDisplayPort.x, metrics.mDisplayPort.y);
+    NS_ASSERTION(false, wtf);
   }
 }
 
@@ -594,20 +596,6 @@ CompositorParent::TransformShadowTree()
   } else if (!metrics.mContentRect.IsEqualEdges(mContentRect)) {
     mContentRect = metrics.mContentRect;
     SetPageRect(metrics.mCSSContentRect);
-  }
-
-  if (mAsyncPanZoomController) {
-    ApplyAsyncPanZoom(root);
-    // If there's a fling animation happening, advance it by 1 frame.
-    mAsyncPanZoomController->DoFling();
-
-    // If there has been a layers update in the form of a pan or zoom, then
-    // signal it during synchronization.
-    if (mAsyncPanZoomController->GetLayersUpdated()) {
-      mLayersUpdated = true;
-      mAsyncPanZoomController->ResetLayersUpdated();
-      ScheduleComposition();
-    }
   }
 
   // We synchronise the viewport information with Java after sending the above
@@ -665,8 +653,22 @@ CompositorParent::TransformShadowTree()
 #endif
 
   shadow->SetShadowTransform(treeTransform * currentTransform);
-
   TranslateFixedLayers(layer, reverseViewTranslation);
+
+  if (mAsyncPanZoomController) {
+    // If there's a fling animation happening, advance it by 1 frame.
+    mAsyncPanZoomController->DoFling();
+
+    ApplyAsyncPanZoom(root);
+
+    // If there has been a layers update in the form of a pan or zoom, then
+    // signal it during synchronization.
+    if (mAsyncPanZoomController->GetLayersUpdated()) {
+      mLayersUpdated = true;
+      mAsyncPanZoomController->ResetLayersUpdated();
+      ScheduleComposition();
+    }
+  }
 
   bool activeAnimation = false;
   SampleAnimations(layer, mLastCompose, &activeAnimation);

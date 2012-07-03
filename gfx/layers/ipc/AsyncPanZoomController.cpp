@@ -266,7 +266,7 @@ nsEventStatus AsyncPanZoomController::OnScale(const nsPinchEvent& event) {
       spanRatio = scale / 0.125f;
     }
 
-    if (doScale || true) {
+    if (doScale) {
       switch (mX.ScaleWillOverscroll(spanRatio, focusPoint.x))
       {
         case Axis::OVERSCROLL_NONE:
@@ -285,7 +285,7 @@ nsEventStatus AsyncPanZoomController::OnScale(const nsPinchEvent& event) {
       }
     }
 
-    if (doScale || true) {
+    if (doScale) {
       switch (mY.ScaleWillOverscroll(spanRatio, focusPoint.y))
       {
         case Axis::OVERSCROLL_NONE:
@@ -300,7 +300,7 @@ nsEventStatus AsyncPanZoomController::OnScale(const nsPinchEvent& event) {
       }
     }
 
-    if (doScale || true) {
+    if (doScale) {
       ScaleWithFocus(scale * spanRatio,
                      focusPoint);
 
@@ -649,7 +649,7 @@ void AsyncPanZoomController::GetContentTransformForFrame(const FrameMetrics& aFr
   float tempScaleDiffY = rootScaleY * localScaleY;
 
   nsIntPoint metricsScrollOffset(0, 0);
-  if (aFrame.IsScrollable())
+  //if (aFrame.IsScrollable())
     metricsScrollOffset = aFrame.mViewportScrollOffset;
 
   nsIntPoint scrollCompensation(
@@ -669,6 +669,11 @@ void AsyncPanZoomController::GetContentTransformForFrame(const FrameMetrics& aFr
                     NS_MIN(offsetY, (float)(localContentRect.YMost() - aWidgetSize.height)));
   *aReverseViewTranslation = gfxPoint(offsetX - metricsScrollOffset.x,
                                       offsetY - metricsScrollOffset.y);
+
+  NS_ASSERTION(false, "@@@@@@@@@@@@@@@ GOT CONTENT TRANSFORM:");
+  char thing[512];
+  sprintf(thing, "%d %d %d %d", mFrameMetrics.mViewportScrollOffset.x, mFrameMetrics.mViewportScrollOffset.y, aFrame.mViewportScrollOffset.x, aFrame.mViewportScrollOffset.y);
+  NS_ASSERTION(false, thing);
 
 }
 
