@@ -396,15 +396,27 @@ Layer::SetAnimations(const AnimationArray& aAnimations)
       if (segment.endState().type() == Animatable::TArrayOfTransformFunction) {
         InfallibleTArray<TransformFunction> startFunctions =
           segment.startState().get_ArrayOfTransformFunction();
-        nsCSSValueList* startList = CreateCSSValueList(startFunctions);
         nsStyleAnimation::Value startValue;
+        nsCSSValueList* startList;
+        if (startFunctions.Length() > 0) {
+          startList = CreateCSSValueList(startFunctions);
+        } else {
+          startList = new nsCSSValueList();
+          startList->mValue.SetNoneValue();
+        }
         startValue.SetAndAdoptCSSValueListValue(startList, nsStyleAnimation::eUnit_Transform);
         startValues->AppendElement(startValue);
 
         InfallibleTArray<TransformFunction> endFunctions =
           segment.endState().get_ArrayOfTransformFunction();
-        nsCSSValueList* endList = CreateCSSValueList(endFunctions);
         nsStyleAnimation::Value endValue;
+        nsCSSValueList* endList;
+        if (endFunctions.Length() > 0) {
+          endList = CreateCSSValueList(endFunctions);
+        } else {
+          endList = new nsCSSValueList();
+          endList->mValue.SetNoneValue();
+        }
         endValue.SetAndAdoptCSSValueListValue(endList, nsStyleAnimation::eUnit_Transform);
         endValues->AppendElement(endValue);
       } else {

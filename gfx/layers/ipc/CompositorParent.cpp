@@ -393,8 +393,11 @@ SampleValue(float aPoint, Animation& aAnimation, nsStyleAnimation::Value& aStart
             nsStyleAnimation::Value& aEnd, Animatable* aValue)
 {
   nsStyleAnimation::Value interpolatedValue;
-  NS_ASSERTION(aStart.GetUnit() == aEnd.GetUnit(), "Must have same unit");
-  if (aStart.GetUnit() == nsStyleAnimation::eUnit_Transform) {
+  NS_ASSERTION(aStart.GetUnit() == aEnd.GetUnit() ||
+               aStart.GetUnit() == nsStyleAnimation::eUnit_None ||
+               aEnd.GetUnit() == nsStyleAnimation::eUnit_None, "Must have same unit");
+  if (aStart.GetUnit() == nsStyleAnimation::eUnit_Transform ||
+      aEnd.GetUnit() == nsStyleAnimation::eUnit_Transform) {
     nsStyleAnimation::Interpolate(eCSSProperty_transform, aStart, aEnd,
                                   aPoint, interpolatedValue);
     nsCSSValueList* interpolatedList = interpolatedValue.GetCSSValueListValue();
