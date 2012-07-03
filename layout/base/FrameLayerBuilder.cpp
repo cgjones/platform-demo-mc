@@ -1595,20 +1595,20 @@ static void AddTransformFunctions(nsCSSValueList* aList,
       case eCSSKeyword_rotatex:
       {
         double theta = array->Item(1).GetAngleValueInRadians();
-        aFunctions.AppendElement(Rotation(1, 0, 0, theta));
+        aFunctions.AppendElement(RotationX(theta));
         break;
       }
       case eCSSKeyword_rotatey:
       {
         double theta = array->Item(1).GetAngleValueInRadians();
-        aFunctions.AppendElement(Rotation(0, 1, 0, theta));
+        aFunctions.AppendElement(RotationY(theta));
         break;
       }
       case eCSSKeyword_rotate:
       case eCSSKeyword_rotatez:
       {
         double theta = array->Item(1).GetAngleValueInRadians();
-        aFunctions.AppendElement(Rotation(0, 0, 1, theta));
+        aFunctions.AppendElement(RotationZ(theta));
         break;
       }
       case eCSSKeyword_rotate3d:
@@ -1691,13 +1691,13 @@ static void AddTransformFunctions(nsCSSValueList* aList,
       case eCSSKeyword_skewx:
       {
         double x = array->Item(1).GetFloatValue();
-        aFunctions.AppendElement(Skew(x, 0));
+        aFunctions.AppendElement(SkewX(x));
         break;
       }
       case eCSSKeyword_skewy:
       {
         double y = array->Item(1).GetFloatValue();
-        aFunctions.AppendElement(Skew(0, y));
+        aFunctions.AppendElement(SkewY(y));
         break;
       }
       case eCSSKeyword_matrix:

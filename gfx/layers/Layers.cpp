@@ -253,30 +253,38 @@ CreateCSSValueList(InfallibleTArray<TransformFunction>& aFunctions)
   for (PRUint32 i = 0; i < aFunctions.Length(); i++) {
     nsRefPtr<nsCSSValue::Array> arr;
     switch(aFunctions[i].type()) {
+      case TransformFunction::TRotationX:
+      {
+        float theta = aFunctions[i].get_RotationX().radians();
+        arr = nsStyleAnimation::AppendTransformFunction(eCSSKeyword_rotatex, resultTail);
+        arr->Item(1).SetFloatValue(theta, eCSSUnit_Radian);
+        break;
+      }
+      case TransformFunction::TRotationY:
+      {
+        float theta = aFunctions[i].get_RotationY().radians();
+        arr = nsStyleAnimation::AppendTransformFunction(eCSSKeyword_rotatey, resultTail);
+        arr->Item(1).SetFloatValue(theta, eCSSUnit_Radian);
+        break;
+      }
+      case TransformFunction::TRotationZ:
+      {
+        float theta = aFunctions[i].get_RotationZ().radians();
+        arr = nsStyleAnimation::AppendTransformFunction(eCSSKeyword_rotatez, resultTail);
+        arr->Item(1).SetFloatValue(theta, eCSSUnit_Radian);
+        break;
+      }
       case TransformFunction::TRotation:
       {
-        // The CSS spec doesn't recognize rotate3d as a primitive, so we must convert rotations
-        // to the correct axis if possible in order to get correct interpolation
         float x = aFunctions[i].get_Rotation().x();
         float y = aFunctions[i].get_Rotation().y();
         float z = aFunctions[i].get_Rotation().z();
         float theta = aFunctions[i].get_Rotation().radians();
-        if (x == 1 && y == 0 && z == 0) {
-          arr = nsStyleAnimation::AppendTransformFunction(eCSSKeyword_rotatex, resultTail);
-          arr->Item(1).SetFloatValue(theta, eCSSUnit_Radian);
-        } else if (x == 0 && y == 1 && z == 0) {
-          arr = nsStyleAnimation::AppendTransformFunction(eCSSKeyword_rotatey, resultTail);
-          arr->Item(1).SetFloatValue(theta, eCSSUnit_Radian);
-        } else if (x == 0 && y == 0 && z == 1) {
-          arr = nsStyleAnimation::AppendTransformFunction(eCSSKeyword_rotatez, resultTail);
-          arr->Item(1).SetFloatValue(theta, eCSSUnit_Radian);
-        } else {
-          arr = nsStyleAnimation::AppendTransformFunction(eCSSKeyword_rotate3d, resultTail);
-          arr->Item(1).SetFloatValue(x, eCSSUnit_Number);
-          arr->Item(2).SetFloatValue(y, eCSSUnit_Number);
-          arr->Item(3).SetFloatValue(z, eCSSUnit_Number);
-          arr->Item(4).SetFloatValue(theta, eCSSUnit_Radian);
-        }
+        arr = nsStyleAnimation::AppendTransformFunction(eCSSKeyword_rotate3d, resultTail);
+        arr->Item(1).SetFloatValue(x, eCSSUnit_Number);
+        arr->Item(2).SetFloatValue(y, eCSSUnit_Number);
+        arr->Item(3).SetFloatValue(z, eCSSUnit_Number);
+        arr->Item(4).SetFloatValue(theta, eCSSUnit_Radian);
         break;
       }
       case TransformFunction::TScale:
@@ -295,17 +303,19 @@ CreateCSSValueList(InfallibleTArray<TransformFunction>& aFunctions)
         arr->Item(3).SetFloatValue(aFunctions[i].get_Translation().z(), eCSSUnit_Pixel);
         break;
       }
-      case TransformFunction::TSkew:
+      case TransformFunction::TSkewX:
       {
-        float x = aFunctions[i].get_Skew().x();
-        float y = aFunctions[i].get_Skew().y();
-        if (y == 0) {
-          arr = nsStyleAnimation::AppendTransformFunction(eCSSKeyword_skewx, resultTail);
-          arr->Item(1).SetFloatValue(x, eCSSUnit_Number);
-        } else {
-          arr = nsStyleAnimation::AppendTransformFunction(eCSSKeyword_skewy, resultTail);
-          arr->Item(1).SetFloatValue(y, eCSSUnit_Number);
-        }
+        float x = aFunctions[i].get_SkewX().x();
+        arr = nsStyleAnimation::AppendTransformFunction(eCSSKeyword_skewx, resultTail);
+        arr->Item(1).SetFloatValue(x, eCSSUnit_Number);
+        break;
+      }
+      case TransformFunction::TSkewY:
+      {
+        float y = aFunctions[i].get_SkewY().y();
+        arr = nsStyleAnimation::AppendTransformFunction(eCSSKeyword_skewy, resultTail);
+        arr->Item(1).SetFloatValue(y, eCSSUnit_Number);
+        break;
       }
       case TransformFunction::TTransformMatrix:
       {

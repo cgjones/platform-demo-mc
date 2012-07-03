@@ -60,6 +60,9 @@ union TimingFunction {
 
 struct Color { gfxRGBA value; };
 struct Opacity { float value; };
+struct RotationX { float radians; };
+struct RotationY { float radians; };
+struct RotationZ { float radians; };
 struct Rotation {
   float x;
   float y;
@@ -71,10 +74,8 @@ struct Scale {
   float y;
   float z;
 };
-struct Skew {
-  float x;
-  float y;
-};
+struct SkewX { float x; };
+struct SkewY { float y; };
 struct TransformMatrix { gfx3DMatrix value; };
 struct Translation {
   float x;
@@ -83,9 +84,13 @@ struct Translation {
 };
 
 union TransformFunction {
+  RotationX;
+  RotationY;
+  RotationZ;
   Rotation;
   Scale;
-  Skew;
+  SkewX;
+  SkewY;
   Translation;
   TransformMatrix;
 };
