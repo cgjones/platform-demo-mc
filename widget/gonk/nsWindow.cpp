@@ -125,9 +125,24 @@ static void *frameBufferWatcher(void *) {
 // FIXME/HACK HACK HACK: not gonk-specific, and shouldn't assume cross
 // process.
 class CrossProcessContentController : public GeckoContentController {
+    MessageLoop* mUILoop;
+
+public:
+    CrossProcessContentController()
+        : mUILoop(MessageLoop::current())
+    {}
+
     virtual void SendViewportChange(const FrameMetrics& aFrameMetrics) MOZ_OVERRIDE
 
     {
+        if (MessageLoop::current() == CompositorParent::CompositorLoop()) {
+            // We have to send this message from the "UI thread" (main
+            // thread).
+            mUILoop->PostTask(
+                FROM_HERE,
+                NewRunnableFunction(&TabParent::HACK_UpdateFrame, aFrameMetrics));
+            return;
+        }
         TabParent::HACK_UpdateFrame(aFrameMetrics);
     }
 
@@ -522,6 +537,7 @@ nsWindow::GetDPI()
 LayerManager *
 nsWindow::GetLayerManager(PLayersChild* aShadowManager,
                           LayersBackend aBackendHint,
+                          int64_t aId,
                           LayerManagerPersistence aPersistence,
                           bool* aAllowRetaining)
 {

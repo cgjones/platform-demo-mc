@@ -16,11 +16,11 @@
 namespace mozilla {
 namespace layers {
 
-class AsyncPanZoomController;
-
 class GeckoContentController {
 public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(GeckoContentController)
+
+  virtual ~GeckoContentController() { }
 
   /**
    * XXX: Rename this to "SendFrameMetrics" or something similar. Unfortunately,
