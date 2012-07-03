@@ -266,7 +266,7 @@ nsEventStatus AsyncPanZoomController::OnScale(const nsPinchEvent& event) {
       spanRatio = scale / 0.125f;
     }
 
-    if (doScale) {
+    if (doScale || true) {
       switch (mX.ScaleWillOverscroll(spanRatio, focusPoint.x))
       {
         case Axis::OVERSCROLL_NONE:
@@ -285,7 +285,7 @@ nsEventStatus AsyncPanZoomController::OnScale(const nsPinchEvent& event) {
       }
     }
 
-    if (doScale) {
+    if (doScale || true) {
       switch (mY.ScaleWillOverscroll(spanRatio, focusPoint.y))
       {
         case Axis::OVERSCROLL_NONE:
@@ -300,7 +300,7 @@ nsEventStatus AsyncPanZoomController::OnScale(const nsPinchEvent& event) {
       }
     }
 
-    if (doScale) {
+    if (doScale || true) {
       ScaleWithFocus(scale * spanRatio,
                      focusPoint);
 

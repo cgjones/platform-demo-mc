@@ -373,9 +373,12 @@ const AsyncPanZoom = {
       let x = aViewport.x / aViewport.zoom;
       let y = aViewport.y / aViewport.zoom;
 
-      // Set scroll position
       let win = content;
-      win.QueryInterface(Ci.nsIInterfaceRequestor).getInterface(Ci.nsIDOMWindowUtils).setScrollPositionClampingScrollPortSize(
+      let cwu = win.QueryInterface(Ci.nsIInterfaceRequestor).getInterface(Ci.nsIDOMWindowUtils);
+      cwu.setCSSViewport(asyncPanZoom.screenWidth, asyncPanZoom.screenHeight);
+
+      // Set scroll position
+      cwu.setScrollPositionClampingScrollPortSize(
           asyncPanZoom.screenWidth / aViewport.zoom, asyncPanZoom.screenHeight / aViewport.zoom);
       win.scrollTo(x, y);
       asyncPanZoom.userScrollPos = { x: win.scrollX, y: win.scrollY };
@@ -587,6 +590,11 @@ const AsyncPanZoom = {
                                  (aDisplayPort.right - aDisplayPort.left) / resolution,
                                  (aDisplayPort.bottom - aDisplayPort.top) / resolution,
                                  element);
+    var thing1 = (aDisplayPort.left / resolution) - geckoScrollX;
+    var thing2 = (aDisplayPort.top / resolution) - geckoScrollY;
+    var thing3 = (aDisplayPort.right - aDisplayPort.left) / resolution;
+    var thing4 = (aDisplayPort.bottom - aDisplayPort.top) / resolution;
+    dump("&&&&&&&&&&&& DISPLAYPORT SET: " + thing1 + " " + thing2 + " " + thing3 + " " + thing4);
   },
 
   /*

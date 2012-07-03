@@ -556,7 +556,7 @@ CompositorParent::ApplyAsyncPanZoom(Layer* aLayer)
   gfx3DMatrix treeTransform;
   gfxPoint reverseViewTranslation;
 
-  if (metrics.IsScrollable()) {
+  if (!metrics.mDisplayPort.IsEmpty()) {
     mAsyncPanZoomController->GetContentTransformForFrame(metrics,
                                                          transform,
                                                          mWidgetSize,
@@ -564,6 +564,8 @@ CompositorParent::ApplyAsyncPanZoom(Layer* aLayer)
                                                          &reverseViewTranslation);
     ShadowLayer* shadow = aLayer->AsShadowLayer();
     shadow->SetShadowTransform(transform * treeTransform);
+    printf("####### [CompositorParent] Frame is scrollable\n");
+    printf("####### x: %d, y: %d\n", metrics.mDisplayPort.width, metrics.mDisplayPort.height);
   }
 }
 

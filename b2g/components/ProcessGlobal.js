@@ -59,9 +59,10 @@ ProcessGlobal.prototype = {
     case 'remote-browser-frame-shown':
     case 'in-process-browser-frame-shown': {
       let frameLoader = subject.QueryInterface(Ci.nsIFrameLoader);
-      if (!frameLoader.ownerElement.getAttribute('mozapp')) {
-        frameLoader.renderMode = Components.interfaces.nsIFrameLoader.RENDER_MODE_ASYNC_SCROLL;
-      }
+      //if (!!frameLoader.ownerElement.getAttribute('mozapp')) {
+        dump("!!!!!!!!!!!!!SETTING ASYNC SCROLL");
+        frameLoader.renderMode = Ci.nsIFrameLoader.RENDER_MODE_ASYNC_SCROLL;
+      //}
       let mm = frameLoader.messageManager;
       try {
         mm.loadFrameScript(kWebApiShimFile, true);
