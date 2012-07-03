@@ -2023,7 +2023,6 @@ ContainerState::ProcessDisplayItems(const nsDisplayList& aList,
       }
 
       ownLayer->ClearAnimations();
-      bool hasOMTATransform = false;
       ElementAnimations* animations = nsnull;
       if (content) {
         animations = nsAnimationManager::GetAnimations(content);
@@ -2033,7 +2032,6 @@ ContainerState::ProcessDisplayItems(const nsDisplayList& aList,
           AddOpacityAnimations(animations, ownLayer);
         } else if (item->GetType() == nsDisplayItem::TYPE_TRANSFORM) {
           AddTransformAnimations(animations, ownLayer, item->ToReferenceFrame());
-          hasOMTATransform = true;
         }
       }
 
@@ -2046,12 +2044,11 @@ ContainerState::ProcessDisplayItems(const nsDisplayList& aList,
           AddOpacityTransitions(transitions, ownLayer);
         } else if (item->GetType() == nsDisplayItem::TYPE_TRANSFORM) {
           AddTransformTransitions(transitions, ownLayer, item->ToReferenceFrame());
-          hasOMTATransform = true;
         }
       }
       // If it's not a ContainerLayer, we need to apply the scale transform
       // ourselves.
-      if (!hasOMTATransform && !ownLayer->AsContainerLayer()) {
+      if (!ownLayer->AsContainerLayer()) {
         // The layer's current transform is applied first, then the result is scaled.
         gfx3DMatrix transform = ownLayer->GetTransform()*
             gfx3DMatrix::ScalingMatrix(mParameters.mXScale, mParameters.mYScale, 1.0f);

@@ -537,6 +537,10 @@ struct nsCSSValue::Array {
     return mArray[aIndex];
   }
 
+  void SetItem(size_t aIndex, nsCSSValue& aValue) {
+    (*this)[aIndex] = aValue;
+  }
+
   nsCSSValue& Item(size_t aIndex) { return (*this)[aIndex]; }
   const nsCSSValue& Item(size_t aIndex) const { return (*this)[aIndex]; }
 
