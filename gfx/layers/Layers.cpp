@@ -283,10 +283,10 @@ CreateCSSValueList(InfallibleTArray<TransformFunction>& aFunctions)
       }
       case TransformFunction::TRotation3D:
       {
-        float x = aFunctions[i].get_Rotation().x();
-        float y = aFunctions[i].get_Rotation().y();
-        float z = aFunctions[i].get_Rotation().z();
-        float theta = aFunctions[i].get_Rotation().radians();
+        float x = aFunctions[i].get_Rotation3D().x();
+        float y = aFunctions[i].get_Rotation3D().y();
+        float z = aFunctions[i].get_Rotation3D().z();
+        float theta = aFunctions[i].get_Rotation3D().radians();
         arr = nsStyleAnimation::AppendTransformFunction(eCSSKeyword_rotate3d, resultTail);
         arr->Item(1).SetFloatValue(x, eCSSUnit_Number);
         arr->Item(2).SetFloatValue(y, eCSSUnit_Number);
