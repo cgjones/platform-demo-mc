@@ -60,7 +60,7 @@ static nscoord CalcLength(const nsCSSValue &aValue,
                                 aCanStoreInRuleTree);
 }
 
-static float
+float
 ProcessTranslatePart(const nsCSSValue& aValue,
                      nsStyleContext* aContext,
                      nsPresContext* aPresContext,

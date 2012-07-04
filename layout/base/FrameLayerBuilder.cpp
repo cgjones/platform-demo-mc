@@ -1581,6 +1581,10 @@ PaintInactiveLayer(nsDisplayListBuilder* aBuilder,
 }
 
 static void AddTransformFunctions(nsCSSValueList* aList,
+                                  nsStyleContext* aContext,
+                                  nsPresContext* aPresContext,
+                                  nsRect& aBounds,
+                                  float aAppUnitsPerPixel,
                                   InfallibleTArray<TransformFunction>& aFunctions)
 {
   for (const nsCSSValueList* curr = aList; curr; curr = curr->mNext) {
@@ -1591,6 +1595,7 @@ static void AddTransformFunctions(nsCSSValueList* aList,
     NS_ASSERTION(currElem.GetUnit() == eCSSUnit_Function,
                  "Stream should consist solely of functions!");
     nsCSSValue::Array* array = currElem.GetArrayValue();
+    bool dummy = false;
     switch (nsStyleTransformMatrix::TransformFunctionOf(array)) {
       case eCSSKeyword_rotatex:
       {
@@ -1661,35 +1666,55 @@ static void AddTransformFunctions(nsCSSValueList* aList,
       }
       case eCSSKeyword_translatex:
       {
-        double x = array->Item(1).GetFloatValue();
+        double x = nsStyleTransformMatrix::ProcessTranslatePart(
+          array->Item(1), aContext, aPresContext, dummy,
+          aBounds.Width(), aAppUnitsPerPixel);
         aFunctions.AppendElement(Translation(x, 0, 0));
         break;
       }
       case eCSSKeyword_translatey:
       {
-        double y = array->Item(1).GetFloatValue();
+        double y = nsStyleTransformMatrix::ProcessTranslatePart(
+          array->Item(1), aContext, aPresContext, dummy,
+          aBounds.Height(), aAppUnitsPerPixel);
         aFunctions.AppendElement(Translation(0, y, 0));
         break;
       }
       case eCSSKeyword_translatez:
       {
-        double z = array->Item(1).GetFloatValue();
+        double z = nsStyleTransformMatrix::ProcessTranslatePart(
+          array->Item(1), aContext, aPresContext, dummy,
+          0, aAppUnitsPerPixel);
         aFunctions.AppendElement(Translation(0, 0, z));
         break;
       }
       case eCSSKeyword_translate:
       {
-        double x = array->Item(1).GetFloatValue();
+        double x = nsStyleTransformMatrix::ProcessTranslatePart(
+          array->Item(1), aContext, aPresContext, dummy,
+          aBounds.Width(), aAppUnitsPerPixel);
         // translate(x) is shorthand for translate(x, 0)
-        double y = array->Count() == 2 ? 0 : array->Item(2).GetFloatValue();
+        double y = 0;
+        if (array->Count() == 3) {
+           y = nsStyleTransformMatrix::ProcessTranslatePart(
+            array->Item(1), aContext, aPresContext, dummy,
+            aBounds.Height(), aAppUnitsPerPixel);
+        }
         aFunctions.AppendElement(Translation(x, y, 0));
         break;
       }
       case eCSSKeyword_translate3d:
       {
-        double x = array->Item(1).GetFloatValue();
-        double y = array->Item(2).GetFloatValue();
-        double z = array->Item(3).GetFloatValue();
+        double x = nsStyleTransformMatrix::ProcessTranslatePart(
+          array->Item(1), aContext, aPresContext, dummy,
+          aBounds.Width(), aAppUnitsPerPixel);
+        double y = nsStyleTransformMatrix::ProcessTranslatePart(
+          array->Item(1), aContext, aPresContext, dummy,
+          aBounds.Height(), aAppUnitsPerPixel);
+        double z = nsStyleTransformMatrix::ProcessTranslatePart(
+          array->Item(1), aContext, aPresContext, dummy,
+          0, aAppUnitsPerPixel);
+
         aFunctions.AppendElement(Translation(x, y, z));
         break;
       }
@@ -1800,11 +1825,15 @@ AddTransformTransitions(ElementTransitions* et, Layer* aLayer,
 
     nsCSSValueList* list = property->mStartValue.GetCSSValueListValue();
     InfallibleTArray<TransformFunction> fromFunctions;
-    AddTransformFunctions(list, fromFunctions);
+    AddTransformFunctions(list, frame->GetStyleContext(),
+                          frame->PresContext(), bounds,
+                          scale, fromFunctions);
 
     list = property->mEndValue.GetCSSValueListValue();
     InfallibleTArray<TransformFunction> toFunctions;
-    AddTransformFunctions(list, toFunctions);
+    AddTransformFunctions(list, frame->GetStyleContext(),
+                          frame->PresContext(), bounds,
+                          scale, toFunctions);
 
     segments.AppendElement(AnimationSegment(fromFunctions, toFunctions,
                                             0, 1,
@@ -1859,11 +1888,15 @@ AddTransformAnimations(ElementAnimations* ea, Layer* aLayer,
         AnimationPropertySegment* segment = &property->mSegments[segIdx];
         nsCSSValueList* list = segment->mFromValue.GetCSSValueListValue();
         InfallibleTArray<TransformFunction> fromFunctions;
-        AddTransformFunctions(list, fromFunctions);
+        AddTransformFunctions(list, frame->GetStyleContext(),
+                              frame->PresContext(), bounds,
+                              scale, fromFunctions);
 
         list = segment->mToValue.GetCSSValueListValue();
         InfallibleTArray<TransformFunction> toFunctions;
-        AddTransformFunctions(list, toFunctions);
+        AddTransformFunctions(list, frame->GetStyleContext(),
+                              frame->PresContext(), bounds,
+                              scale, toFunctions);
 
         segments.AppendElement(AnimationSegment(fromFunctions, toFunctions,
                                                 segment->mFromKey, segment->mToKey,
