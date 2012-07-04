@@ -57,8 +57,7 @@ PRInt32 Axis::UpdateAndGetDisplacement() {
   // If this displacement will cause an overscroll, throttle it. Can potentially
   // bring it to 0 even if the velocity is high.
   if (DisplacementWillOverscroll(displacement) != OVERSCROLL_NONE) {
-    // dRdR
-    //displacement -= DisplacementWillOverscrollAmount(displacement);
+    displacement -= DisplacementWillOverscrollAmount(displacement);
   }
   return displacement;
 }
