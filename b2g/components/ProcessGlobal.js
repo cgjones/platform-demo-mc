@@ -19,6 +19,8 @@ const Cc = Components.classes;
 const Ci = Components.interfaces;
 const Cu = Components.utils;
 const kWebApiShimFile = 'chrome://browser/content/webapi.js';
+const kSyncPanZoomFile = 'chrome://browser/content/sync-pan-zoom.js';
+const kAsyncPanZoomFile = 'chrome://browser/content/async-pan-zoom.js';
 
 Cu.import('resource://gre/modules/Services.jsm');
 Cu.import('resource://gre/modules/XPCOMUtils.jsm');
@@ -59,12 +61,25 @@ ProcessGlobal.prototype = {
     case 'remote-browser-frame-shown':
     case 'in-process-browser-frame-shown': {
       let frameLoader = subject.QueryInterface(Ci.nsIFrameLoader);
+      let asyncPanningAndZooming = !frameLoader.ownerElement.getAttribute('mozapp');
+      if (asyncPanningAndZooming) {
+        dump("!!!!!!!!!!!!!SETTING ASYNC SCROLL");
+        frameLoader.renderMode = Ci.nsIFrameLoader.RENDER_MODE_ASYNC_SCROLL;
+      }
+
       let mm = frameLoader.messageManager;
       try {
         mm.loadFrameScript(kWebApiShimFile, true);
       } catch (e) {
         log('Error loading ' + kWebApiShimFile + ' as frame script: ' + e + '\n');
       }
+
+      try {
+        mm.loadFrameScript(asyncPanningAndZooming ? kAsyncPanZoomFile : kSyncPanZoomFile, true);
+      } catch (e) {
+        log('Error loading ' + asyncPanningAndZooming ? kAsyncPanZoomFile : kSyncPanZoomFile + ' as frame script: ' + e + '\n');
+      }
+
       break;
     }
     }

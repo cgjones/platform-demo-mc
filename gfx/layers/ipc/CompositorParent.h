@@ -69,7 +69,8 @@ public:
   virtual bool RecvPause() MOZ_OVERRIDE;
   virtual bool RecvResume() MOZ_OVERRIDE;
 
-  virtual void ShadowLayersUpdated(bool isFirstPaint) MOZ_OVERRIDE;
+  virtual void ShadowLayersUpdated(ShadowLayersParent* aLayerTree,
+                                   bool isFirstPaint) MOZ_OVERRIDE;
   void Destroy();
 
   LayerManager* GetLayerManager() { return mLayerManager; }
@@ -82,10 +83,17 @@ public:
   void SchedulePauseOnCompositorThread();
   void ScheduleResumeOnCompositorThread(int width, int height);
 
+  virtual void ScheduleComposition();
+
   void SetAsyncPanZoomController(AsyncPanZoomController* aAsyncPanZoomController);
 
-  virtual void ScheduleComposition();
-  
+  /** Runs on the "main thread". */
+  static int64_t AllocateLayerTreeId();
+
+  /** */
+  static PCompositorParent*
+  Create(Transport* aTransport, ProcessId aOtherProcess);
+
   /**
    * Creates a global map referencing each compositor by ID.
    *
@@ -128,7 +136,7 @@ public:
   static MessageLoop* CompositorLoop();
 
 protected:
-  virtual PLayersParent* AllocPLayers(const LayersBackend& aBackendType, int* aMaxTextureSize);
+  virtual PLayersParent* AllocPLayers(const LayersBackend& aBackendType, const int64_t& aId, int32_t* aMaxTextureSize);
   virtual bool DeallocPLayers(PLayersParent* aLayers);
   virtual void ScheduleTask(CancelableTask*, int);
   virtual void Composite();
@@ -139,11 +147,14 @@ protected:
   void SetEGLSurfaceSize(int width, int height);
 
 private:
+  CompositorParent();
+
   void PauseComposition();
   void ResumeComposition();
   void ResumeCompositionAndResize(int width, int height);
 
   void TransformShadowTree();
+  void ApplyAsyncPanZoom(Layer* layer);
 
   /**
    * Add a compositor to the global compositor map.
@@ -153,8 +164,6 @@ private:
    * Remove a compositor from the global compositor map.
    */
   static CompositorParent* RemoveCompositor(PRUint32 id);
-
-  inline PlatformThreadId CompositorThreadID();
 
   // Platform specific functions
   /**
@@ -169,6 +178,8 @@ private:
    */
   void TranslateFixedLayers(Layer* aLayer, const gfxPoint& aTranslation);
 
+  //
+  nsRefPtr<CompositorParent> mSelfRef;
   nsRefPtr<LayerManager> mLayerManager;
   nsIWidget* mWidget;
   CancelableTask *mCurrentCompositeTask;

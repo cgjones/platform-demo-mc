@@ -179,9 +179,9 @@ void nsBaseWidget::BaseCreate(nsIWidget *aParent,
 {
   static bool gDisableNativeThemeCached = false;
   if (!gDisableNativeThemeCached) {
-    mozilla::Preferences::AddBoolVarCache(&gDisableNativeTheme,
-                                          "mozilla.widget.disable-native-theme",
-                                          gDisableNativeTheme);
+    Preferences::AddBoolVarCache(&gDisableNativeTheme,
+                                 "mozilla.widget.disable-native-theme",
+                                 gDisableNativeTheme);
     gDisableNativeThemeCached = true;
   }
 
@@ -858,6 +858,11 @@ nsBaseWidget::GetShouldAccelerate()
 
 void nsBaseWidget::CreateCompositor()
 {
+  if (mCompositorChild) {
+    // Someone kindly already created this for us.
+    return;
+  }
+
   bool renderToEGLSurface = false;
 #ifdef MOZ_JAVA_COMPOSITOR
   renderToEGLSurface = true;
@@ -875,9 +880,9 @@ void nsBaseWidget::CreateCompositor()
   PRInt32 maxTextureSize;
   PLayersChild* shadowManager;
   if (mUseAcceleratedRendering) {
-    shadowManager = mCompositorChild->SendPLayersConstructor(LayerManager::LAYERS_OPENGL, &maxTextureSize);
+    shadowManager = mCompositorChild->SendPLayersConstructor(LayerManager::LAYERS_OPENGL, -1, &maxTextureSize);
   } else {
-    shadowManager = mCompositorChild->SendPLayersConstructor(LayerManager::LAYERS_BASIC, &maxTextureSize);
+    shadowManager = mCompositorChild->SendPLayersConstructor(LayerManager::LAYERS_BASIC, -1, &maxTextureSize);
   }
 
   if (shadowManager) {
@@ -903,13 +908,9 @@ void nsBaseWidget::CreateCompositor()
   }
 }
 
-bool nsBaseWidget::UseOffMainThreadCompositing()
-{
-  return CompositorParent::CompositorLoop() != nsnull;
-}
-
 LayerManager* nsBaseWidget::GetLayerManager(PLayersChild* aShadowManager,
                                             LayersBackend aBackendHint,
+                                            int64_t aId,
                                             LayerManagerPersistence aPersistence,
                                             bool* aAllowRetaining)
 {
@@ -918,7 +919,7 @@ LayerManager* nsBaseWidget::GetLayerManager(PLayersChild* aShadowManager,
     mUseAcceleratedRendering = GetShouldAccelerate();
 
     // Try to use an async compositor first, if possible
-    if (UseOffMainThreadCompositing()) {
+    if (CompositorParent::CompositorLoop()) {
       // e10s uses the parameter to pass in the shadow manager from the TabChild
       // so we don't expect to see it there since this doesn't support e10s.
       NS_ASSERTION(aShadowManager == nsnull, "Async Compositor not supported with e10s");

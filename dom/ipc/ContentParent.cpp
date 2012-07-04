@@ -4,92 +4,88 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include "ContentParent.h"
+#if defined(ANDROID) || defined(XP_UNIX)
+# include <sys/time.h>
+# include <sys/resource.h>
+#endif
 
-#include "TabParent.h"
-#include "CrashReporterParent.h"
-#include "History.h"
-#include "mozilla/ipc/TestShellParent.h"
-#include "mozilla/net/NeckoParent.h"
-#include "mozilla/Preferences.h"
-#include "nsHashPropertyBag.h"
-#include "nsIFilePicker.h"
-#include "nsIWindowWatcher.h"
-#include "nsIDOMWindow.h"
-#include "nsIObserverService.h"
-#include "nsContentUtils.h"
-#include "nsAutoPtr.h"
-#include "nsCOMPtr.h"
-#include "nsServiceManagerUtils.h"
-#include "nsThreadUtils.h"
-#include "nsChromeRegistryChrome.h"
-#include "nsExternalHelperAppService.h"
-#include "nsCExternalHandlerService.h"
-#include "nsFrameMessageManager.h"
-#include "nsIPresShell.h"
-#include "nsIAlertsService.h"
-#include "nsToolkitCompsCID.h"
-#include "nsIDOMGeoGeolocation.h"
-#include "nsIConsoleService.h"
-#include "nsIScriptError.h"
-#include "nsConsoleMessage.h"
-#include "nsAppDirectoryServiceDefs.h"
-#include "nsAppRunner.h"
-#if defined(MOZ_SYDNEYAUDIO)
 #include "AudioParent.h"
-#endif
-#include "SandboxHal.h"
-
-#if defined(ANDROID) || defined(LINUX)
-#include <sys/time.h>
-#include <sys/resource.h>
-#include "nsSystemInfo.h"
-#endif
-
-#ifdef MOZ_PERMISSIONS
-#include "nsPermissionManager.h"
-#endif
-
-#ifdef MOZ_CRASHREPORTER
-#include "nsICrashReporter.h"
-#include "nsExceptionHandler.h"
-#endif
-
+#include "CrashReporterParent.h"
+#include "ContentParent.h"
+#include "History.h"
+#include "mozilla/Preferences.h"
 #include "mozilla/dom/ExternalHelperAppParent.h"
+#include "mozilla/dom/PMemoryReportRequestParent.h"
+#include "mozilla/dom/sms/SmsParent.h"
 #include "mozilla/dom/StorageParent.h"
 #include "mozilla/hal_sandbox/PHalParent.h"
+#include "mozilla/ipc/TestShellParent.h"
+#include "mozilla/layers/CompositorParent.h"
+#include "mozilla/net/NeckoParent.h"
 #include "mozilla/Services.h"
 #include "mozilla/unused.h"
 #include "mozilla/Util.h"
-
+#include "nsAppDirectoryServiceDefs.h"
+#include "nsAppRunner.h"
+#include "nsAutoPtr.h"
+#include "nsCOMPtr.h"
+#include "nsContentUtils.h"
+#include "nsCExternalHandlerService.h"
+#include "nsChromeRegistryChrome.h"
+#include "nsConsoleMessage.h"
+#include "nsDebugImpl.h"
+#include "nsExternalHelperAppService.h"
+#include "nsFrameMessageManager.h"
+#include "nsHashPropertyBag.h"
+#include "nsIAlertsService.h"
+#include "nsIClipboard.h"
+#include "nsIConsoleService.h"
+#include "nsIDOMGeoGeolocation.h"
+#include "nsIDOMWindow.h"
+#include "nsIFilePicker.h"
 #include "nsIMemoryReporter.h"
+#include "nsIObserverService.h"
+#include "nsIPresShell.h"
+#include "nsIScriptError.h"
+#include "nsISupportsPrimitives.h"
+#include "nsIWindowWatcher.h"
 #include "nsMemoryReporterManager.h"
-#include "mozilla/dom/PMemoryReportRequestParent.h"
+#include "nsServiceManagerUtils.h"
+#include "nsSystemInfo.h"
+#include "nsThreadUtils.h"
+#include "nsToolkitCompsCID.h"
+#include "nsWidgetsCID.h"
+#include "SandboxHal.h"
+#include "TabParent.h"
+
+#ifdef MOZ_WIDGET_ANDROID
+# include "AndroidBridge.h"
+#endif
 
 #ifdef ANDROID
-#include "gfxAndroidPlatform.h"
-#endif
-#ifdef MOZ_WIDGET_ANDROID
-#include "AndroidBridge.h"
+# include "gfxAndroidPlatform.h"
 #endif
 
-#include "nsIClipboard.h"
-#include "nsWidgetsCID.h"
-#include "nsISupportsPrimitives.h"
-#include "mozilla/dom/sms/SmsParent.h"
-#include "nsDebugImpl.h"
+#ifdef MOZ_CRASHREPORTER
+# include "nsExceptionHandler.h"
+# include "nsICrashReporter.h"
+#endif
+
+#ifdef MOZ_PERMISSIONS
+# include "nsPermissionManager.h"
+#endif
 
 static NS_DEFINE_CID(kCClipboardCID, NS_CLIPBOARD_CID);
 static const char* sClipboardTextFlavors[] = { kUnicodeMime };
 
-using mozilla::Preferences;
-using namespace mozilla::ipc;
+using namespace base;
+using namespace mozilla;
+using namespace mozilla::dom::sms;
 using namespace mozilla::hal_sandbox;
+using namespace mozilla::ipc;
+using namespace mozilla::layers;
 using namespace mozilla::net;
 using namespace mozilla::places;
-using mozilla::unused; // heh
-using base::KillProcess;
-using namespace mozilla::dom::sms;
 
 namespace mozilla {
 namespace dom {
@@ -394,9 +390,27 @@ ContentParent::ContentParent()
 
     NS_ASSERTION(NS_IsMainThread(), "Wrong thread!");
     mSubprocess = new GeckoChildProcessHost(GeckoProcessType_Content);
-    mSubprocess->AsyncLaunch();
+
+
+    // FIXME.  OMG FIXME.
+    mSubprocess->SyncLaunch();
     Open(mSubprocess->GetChannel(), mSubprocess->GetChildProcessHandle());
     unused << SendSetID(gContentChildID++);
+
+
+    // NB: internally, this will send an IPC message to the child
+    // process to get it to create the CompositorChild.  This
+    // message goes through the regular IPC queue for this
+    // channel, so delivery will happen-before any other messages
+    // we send.  The CompositorChild must be created before any
+    // PBrowsers are created, because they rely on the Compositor
+    // already being around.  (Creation is async, so can't happen
+    // on demand.)
+    if (CompositorParent::CompositorLoop()) {
+        DebugOnly<bool> opened = PCompositor::Open(this);
+        MOZ_ASSERT(opened);
+    }
+
 
     nsCOMPtr<nsIChromeRegistry> registrySvc = nsChromeRegistry::GetService();
     nsChromeRegistryChrome* chromeRegistry =
@@ -409,7 +423,7 @@ ContentParent::ContentParent()
         nsCString buildID(gAppData->buildID);
 
         //Sending all information to content process
-        SendAppInfo(version, buildID);
+        unused << SendAppInfo(version, buildID);
     }
 }
 
@@ -677,10 +691,10 @@ ContentParent::Observe(nsISupports* aSubject,
         unused << SendPMemoryReportRequestConstructor();
     }
     else if (!strcmp(aTopic, "child-gc-request")){
-        SendGarbageCollect();
+        unused << SendGarbageCollect();
     }
     else if (!strcmp(aTopic, "child-cc-request")){
-        SendCycleCollect();
+        unused << SendCycleCollect();
     }
     else if (!strcmp(aTopic, "last-pb-context-exited")) {
         unused << SendLastPrivateDocShellDestroyed();
@@ -695,6 +709,12 @@ ContentParent::Observe(nsISupports* aSubject,
 #endif
 
     return NS_OK;
+}
+
+PCompositorParent*
+ContentParent::AllocPCompositor(Transport* aTransport, ProcessId aOtherProcess)
+{
+    return CompositorParent::Create(aTransport, aOtherProcess);
 }
 
 PBrowserParent*

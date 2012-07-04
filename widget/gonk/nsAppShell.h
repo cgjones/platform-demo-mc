@@ -17,6 +17,9 @@
 namespace mozilla {
 bool ProcessNextEvent();
 void NotifyEvent();
+namespace layers {
+class GestureEventListener;
+}
 }
 
 extern bool gDrawRequest;
@@ -63,6 +66,8 @@ public:
 
     static void NotifyScreenInitialized();
     static void NotifyScreenRotation();
+
+    mozilla::layers::GestureEventListener* GetGestureEventListener();
 
 protected:
     virtual ~nsAppShell();

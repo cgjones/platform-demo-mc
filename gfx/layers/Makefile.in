@@ -122,26 +122,31 @@ EXPORTS_mozilla/layers =\
         GestureEventListener.h \
         Axis.h \
         CompositeEvent.h \
+        ImageBridgeChild.h \
+        ImageBridgeParent.h \
+        ImageContainerChild.h \
+        ImageContainerParent.h \
+        SharedImageUtils.h \
         $(NULL)
 
 CPPSRCS += \
+        AsyncPanZoomController.cpp \
+        Axis.cpp \
+        CompositeEvent.cpp \
         CompositorCocoaWidgetHelper.cpp \
         CompositorChild.cpp \
         CompositorParent.cpp \
+        GeckoContentController.cpp \
+        GestureEventListener.cpp \
+        ImageBridgeChild.cpp \
+        ImageBridgeParent.cpp \
+        ImageContainerChild.cpp \
+        ImageContainerParent.cpp \
         ShadowLayers.cpp \
         ShadowLayerChild.cpp \
         ShadowLayersChild.cpp \
         ShadowLayerParent.cpp \
         ShadowLayersParent.cpp \
-        ImageBridgeChild.cpp \
-        ImageBridgeParent.cpp \
-        ImageContainerChild.cpp \
-        ImageContainerParent.cpp \
-        AsyncPanZoomController.cpp \
-        GeckoContentController.cpp \
-        GestureEventListener.cpp \
-        Axis.cpp \
-        CompositeEvent.cpp \
         $(NULL)
 
 ifdef MOZ_X11 #{

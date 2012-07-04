@@ -30,11 +30,14 @@ nsEventStatus GestureEventListener::HandleTouchEvent(const nsTouchEvent& event)
   {
   case NS_TOUCH_START:
     mTouchStartTime = event.time;
-    mTouches.Clear();
+    HandlePinchEvent(event, true);
 
   case NS_TOUCH_START_POINTER:
     for (size_t i = 0; i < event.touchData.Length(); i++) {
       mTouches.AppendElement(event.touchData[i]);
+      char thing[256];
+      sprintf(thing, "ADDED ID: %d", event.touchData[i].GetIdentifier());
+      NS_ASSERTION(false, thing);
     }
 
     if (mTouches.Length() == 2) {
@@ -62,7 +65,14 @@ nsEventStatus GestureEventListener::HandleTouchEvent(const nsTouchEvent& event)
     for (size_t i = 0; i < mTouches.Length(); i++) {
       for (size_t j = 0; j < event.touchData.Length(); j++) {
         if (mTouches[i].GetIdentifier() == event.touchData[j].GetIdentifier()) {
+          char thing[256];
+          sprintf(thing, "REMOVED ID: %d / %d", event.touchData[j].GetIdentifier(), mTouches.Length());
+          NS_ASSERTION(false, thing);
           mTouches.RemoveElementAt(i);
+          sprintf(thing, "AFTER: %d", mTouches.Length());
+          NS_ASSERTION(false, thing);
+          i--;
+          break;
         }
       }
     }
@@ -84,20 +94,28 @@ nsEventStatus GestureEventListener::HandleTouchEvent(const nsTouchEvent& event)
     break;
 
   case NS_TOUCH_CANCEL:
-    mTouches.Clear();
+    HandlePinchEvent(event, true);
+    NS_ASSERTION(false, "CANCEL!!!!");
     break;
 
   }
 
-  if (HandlePinchEvent(event) == nsEventStatus_eConsumeNoDefault)
+  if (HandlePinchEvent(event, false) == nsEventStatus_eConsumeNoDefault)
     return nsEventStatus_eConsumeNoDefault;
 
   return mAsyncPanZoomController->HandleInputEvent(event);
 }
 
-nsEventStatus GestureEventListener::HandlePinchEvent(const nsTouchEvent& event)
+nsEventStatus GestureEventListener::HandlePinchEvent(const nsTouchEvent& event, bool clearTouches)
 {
-  if (mTouches.Length() > 1) {
+  size_t uniqueTouches = 0;
+  for (size_t i = 0; i < mTouches.Length(); i++) {
+    if (mTouches[i].GetIdentifier() != mTouches[0].GetIdentifier()) {
+      uniqueTouches++;
+    }
+  }
+
+  if (uniqueTouches > 1 && !clearTouches) {
     SingleTouchData &firstTouch = mTouches[0],
                     &secondTouch = mTouches[mTouches.Length() - 1];
     nsIntPoint focusPoint =
@@ -133,7 +151,24 @@ nsEventStatus GestureEventListener::HandlePinchEvent(const nsTouchEvent& event)
   } else if (mState == InPinchGesture) {
     nsPinchEvent pinchEvent(true, NS_PINCH_END, nsnull);
     pinchEvent.time = event.time;
-    pinchEvent.focusPoint = event.touchData[0].GetPoint();
+    pinchEvent.focusPoint = mTouches[0].GetPoint();
+    for (size_t i = 0; i < mTouches.Length(); i++) {
+      char thing[256];
+      sprintf(thing, "ID LEFT[%d]: %d", i, mTouches[i].GetIdentifier());
+      NS_ASSERTION(false, thing);
+      if (mTouches[i].GetIdentifier() != event.touchData[0].GetIdentifier()) {
+        pinchEvent.focusPoint = mTouches[i].GetPoint();
+        break;
+      }
+    }
+
+    if (uniqueTouches < mTouches.Length()) {
+      mTouches.RemoveElementsAt(uniqueTouches, mTouches.Length() - 1);
+    }
+
+    if (clearTouches) {
+      mTouches.Clear();
+    }
 
     mAsyncPanZoomController->HandleInputEvent(pinchEvent);
 

@@ -16,6 +16,8 @@ chrome.jar:
 #ifndef ANDROID
   content/screen.js                     (content/screen.js)
 #endif
+  content/sync-pan-zoom.js              (content/sync-pan-zoom.js)
+  content/async-pan-zoom.js             (content/async-pan-zoom.js)
   content/webapi.js                     (content/webapi.js)
   content/content.css                   (content/content.css)
   content/touchcontrols.css             (content/touchcontrols.css)

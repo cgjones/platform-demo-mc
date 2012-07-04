@@ -57,7 +57,30 @@ namespace dom {
 
 TabParent *TabParent::mIMETabParent = nsnull;
 
+static PBrowserParent* sCurrentTab;
+
 NS_IMPL_ISUPPORTS3(TabParent, nsITabParent, nsIAuthPromptProvider, nsISecureBrowserUI)
+
+/*static*/ void
+TabParent::HACK_UpdateFrame(const FrameMetrics& aFrameMetrics)
+{
+  if (sCurrentTab) {
+    // XXX why can't I use FrameMetrics in PBrowser
+    unused << sCurrentTab->SendHACK_UpdateFrame(
+      aFrameMetrics.mDisplayPort,
+      aFrameMetrics.mViewportScrollOffset,
+      aFrameMetrics.mResolution,
+      aFrameMetrics.mViewport);
+  } else {
+    printf_stderr("WARNING: no current tab\n");
+  }
+}
+
+/*static(*/ void
+TabParent::HACK_LastPainted(PBrowserParent* aBrowser)
+{
+  sCurrentTab = aBrowser;
+}
 
 TabParent::TabParent()
   : mFrameElement(NULL)
@@ -75,6 +98,9 @@ TabParent::TabParent()
 
 TabParent::~TabParent()
 {
+  if (sCurrentTab == this) {
+    sCurrentTab = nsnull;
+  }
 }
 
 void

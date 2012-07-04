@@ -16,11 +16,11 @@
 namespace mozilla {
 namespace layers {
 
-class AsyncPanZoomController;
-
 class GeckoContentController {
 public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(GeckoContentController)
+
+  virtual ~GeckoContentController() { }
 
   /**
    * XXX: Rename this to "SendFrameMetrics" or something similar. Unfortunately,
@@ -31,8 +31,7 @@ public:
    * Sends updated frame metrics to Gecko for it to repaint. This gets
    * dispatched to the main thread.
    */
-  virtual void SendViewportChange(const FrameMetrics& aFrameMetrics,
-                          const nsIntRect& aDisplayPort);
+  virtual void SendViewportChange(const FrameMetrics& aFrameMetrics);
 
   /**
    * Sends a gesture event to browser.js so that it can handle opening links,
