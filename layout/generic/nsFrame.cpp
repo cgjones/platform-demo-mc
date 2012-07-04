@@ -934,6 +934,13 @@ nsIFrame::IsTransformed() const
     if (ea)
       hasOMTATransform = ea->HasAnimationOfProperty(eCSSProperty_transform) &&
         ea->CanPerformOnCompositorThread();
+    if (!hasOMTATransform) {
+      ElementTransitions* et = nsTransitionManager::GetTransitions(mContent);
+      if (et) {
+        hasOMTATransform = et->HasTransitionOfProperty(eCSSProperty_transform) &&
+          et->CanPerformOnCompositorThread();
+      }
+    }
   }
 
   return ((mState & NS_FRAME_MAY_BE_TRANSFORMED) &&
@@ -953,7 +960,7 @@ nsIFrame::HasOpacity() const
     if (!hasOMTAOpacity) {
       ElementTransitions* et = nsTransitionManager::GetTransitions(mContent);
       if (et) {
-        hasOMTAOpacity = et->HasAnimationOfProperty(eCSSProperty_opacity) &&
+        hasOMTAOpacity = et->HasTransitionOfProperty(eCSSProperty_opacity) &&
           et->CanPerformOnCompositorThread();
       }
     }

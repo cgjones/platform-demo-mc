@@ -2053,7 +2053,7 @@ ContainerState::ProcessDisplayItems(const nsDisplayList& aList,
       }
       // If it's not a ContainerLayer, we need to apply the scale transform
       // ourselves.
-      if (!ownLayer->AsContainerLayer()) {
+      else if (!ownLayer->AsContainerLayer()) {
         // The layer's current transform is applied first, then the result is scaled.
         gfx3DMatrix transform = ownLayer->GetTransform()*
             gfx3DMatrix::ScalingMatrix(mParameters.mXScale, mParameters.mYScale, 1.0f);

@@ -38,17 +38,6 @@ ElementTransitions::ElementTransitions(mozilla::dom::Element *aElement, nsIAtom 
 {
   }
 
-bool
-ElementTransitions::HasAnimationOfProperty(nsCSSProperty aProperty) const
-{
-  for (PRUint32 propIdx = mPropertyTransitions.Length(); propIdx-- != 0; ) {
-    if (aProperty == mPropertyTransitions[propIdx].mProperty) {
-      return true;
-    }
-  }
-  return false;
-}
-
 double
 ElementPropertyTransition::ValuePortionFor(TimeStamp aRefreshTime) const
 {
@@ -139,6 +128,17 @@ ElementPropertyTransition::CanPerformOnCompositor(mozilla::dom::Element* aElemen
   return css::CommonElementAnimationData::
     CanAnimatePropertyOnCompositor(aElement, mProperty) && !IsRemovedSentinel() &&
     aTime > mStartTime && aTime < mStartTime + mDuration;
+}
+
+bool
+ElementTransitions::HasTransitionOfProperty(nsCSSProperty aProperty) const
+{
+  for (PRUint32 tranIdx = mPropertyTransitions.Length(); tranIdx-- != 0; ) {
+    if (aProperty == mPropertyTransitions[tranIdx].mProperty) {
+      return true;
+    }
+  }
+  return false;
 }
 
 bool

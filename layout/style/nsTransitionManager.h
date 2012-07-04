@@ -83,7 +83,7 @@ struct ElementTransitions : public mozilla::css::CommonElementAnimationData
   void EnsureStyleRuleFor(mozilla::TimeStamp aRefreshTime);
 
 
-  bool HasAnimationOfProperty(nsCSSProperty aProperty) const;
+  bool HasTransitionOfProperty(nsCSSProperty aProperty) const;
   // True if this animation can be performed on the compositor thread.
   bool CanPerformOnCompositorThread() const;
   // Either zero or one for each CSS property:
