@@ -6,6 +6,7 @@
 
 include protocol PAudio;
 include protocol PBrowser;
+include protocol PCompositor;
 include protocol PCrashReporter;
 include protocol PExternalHelperApp;
 include protocol PHal;
@@ -66,6 +67,8 @@ struct FontListEntry {
 
 rpc protocol PContent
 {
+    parent opens PCompositor;
+
     manages PAudio;
     manages PBrowser;
     manages PCrashReporter;

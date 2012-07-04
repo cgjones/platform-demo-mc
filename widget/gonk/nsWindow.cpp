@@ -9,7 +9,12 @@
 #include "android/log.h"
 #include "ui/FramebufferNativeWindow.h"
 
+#include "mozilla/dom/TabParent.h"
 #include "mozilla/Hal.h"
+#include "mozilla/layers/CompositorParent.h"
+#include "mozilla/layers/AsyncPanZoomController.h"
+#include "mozilla/layers/GestureEventListener.h"
+#include "mozilla/layers/GeckoContentController.h"
 #include "mozilla/Preferences.h"
 #include "mozilla/FileUtils.h"
 #include "Framebuffer.h"
@@ -117,7 +122,40 @@ static void *frameBufferWatcher(void *) {
     return NULL;
 }
 
+// FIXME/HACK HACK HACK: not gonk-specific, and shouldn't assume cross
+// process.
+class CrossProcessContentController : public GeckoContentController {
+    MessageLoop* mUILoop;
+
+public:
+    CrossProcessContentController()
+        : mUILoop(MessageLoop::current())
+    {}
+
+    virtual void SendViewportChange(const FrameMetrics& aFrameMetrics) MOZ_OVERRIDE
+
+    {
+        if (MessageLoop::current() == CompositorParent::CompositorLoop()) {
+            // We have to send this message from the "UI thread" (main
+            // thread).
+            mUILoop->PostTask(
+                FROM_HERE,
+                NewRunnableFunction(&TabParent::HACK_UpdateFrame, aFrameMetrics));
+            return;
+        }
+        TabParent::HACK_UpdateFrame(aFrameMetrics);
+    }
+
+    virtual void SendGestureEvent(const nsAString& aTopic,
+                                  const nsIntPoint& aPoint) MOZ_OVERRIDE
+    {
+        // No-op
+    }
+};
+
 } // anonymous namespace
+
+nsRefPtr<mozilla::layers::GestureEventListener> nsWindow::mGestureEventListener;
 
 nsWindow::nsWindow()
 {
@@ -131,12 +169,21 @@ nsWindow::nsWindow()
             NS_RUNTIMEABORT("Failed to create framebufferWatcherThread, aborting...");
         }
 
+        gfxPlatform::InitOffMainThreadCompositing();
+        sUsingOMTC = !!CompositorParent::CompositorLoop();
+
+        if (sUsingOMTC) {
+          printf_stderr("Using off-main-thread composition");
+          sOMTCSurface = new gfxImageSurface(gfxIntSize(1, 1),
+                                             gfxASurface::ImageFormatRGB24);
+        }
+
         // We (apparently) don't have a way to tell if allocating the
         // fbs succeeded or failed.
         gNativeWindow = new android::FramebufferNativeWindow();
 
         nsIntSize screenSize;
-        bool gotFB = Framebuffer::GetSize(&screenSize);
+        DebugOnly<bool> gotFB = Framebuffer::GetSize(&screenSize);
         MOZ_ASSERT(gotFB);
         gScreenBounds = nsIntRect(nsIntPoint(0, 0), screenSize);
 
@@ -161,10 +208,6 @@ nsWindow::nsWindow()
         sVirtualBounds = gScreenBounds;
 
         sScreenInitialized = true;
-
-        // Force initialize gfxPlatform before UseOffMainThreadCompositing()
-        gfxPlatform::GetPlatform();
-        sUsingOMTC = UseOffMainThreadCompositing();
 
         if (sUsingOMTC) {
           sOMTCSurface = new gfxImageSurface(gfxIntSize(1, 1),
@@ -239,7 +282,18 @@ nsWindow::DispatchInputEvent(nsGUIEvent &aEvent)
 
     gFocusedWindow->UserActivity();
     aEvent.widget = gFocusedWindow;
-    return gFocusedWindow->mEventCallback(&aEvent);
+    nsEventStatus status = gFocusedWindow->mEventCallback(&aEvent);
+    if (status != nsEventStatus_eConsumeNoDefault) {
+        switch (aEvent.message) {
+        case NS_TOUCH_START:
+        case NS_TOUCH_MOVE:
+        case NS_TOUCH_END:
+        case NS_TOUCH_CANCEL:
+            mGestureEventListener->HandleTouchEvent((const nsTouchEvent&)(aEvent));
+            break;
+        }
+    }
+    return status;
 }
 
 NS_IMETHODIMP
@@ -363,6 +417,9 @@ nsWindow::Resize(PRInt32 aX,
     if (aRepaint && gWindowToRedraw)
         gWindowToRedraw->Invalidate(sVirtualBounds);
 
+    if (mGestureEventListener)
+        mGestureEventListener->GetAsyncPanZoomController()->UpdateViewport(aWidth, aHeight);
+
     return NS_OK;
 }
 
@@ -443,6 +500,17 @@ NS_IMETHODIMP
 nsWindow::DispatchEvent(nsGUIEvent *aEvent, nsEventStatus &aStatus)
 {
     aStatus = (*mEventCallback)(aEvent);
+    // If content didn't handle it, send it to the pan zoom controller.
+    if (aStatus != nsEventStatus_eConsumeNoDefault) {
+        switch (aEvent->message) {
+        case NS_TOUCH_START:
+        case NS_TOUCH_MOVE:
+        case NS_TOUCH_END:
+        case NS_TOUCH_CANCEL:
+            aStatus = mGestureEventListener->HandleTouchEvent((const nsTouchEvent&)(*aEvent));
+            break;
+        }
+    }
     return NS_OK;
 }
 
@@ -474,6 +542,7 @@ nsWindow::GetDPI()
 LayerManager *
 nsWindow::GetLayerManager(PLayersChild* aShadowManager,
                           LayersBackend aBackendHint,
+                          int64_t aId,
                           LayerManagerPersistence aPersistence,
                           bool* aAllowRetaining)
 {
@@ -502,6 +571,19 @@ nsWindow::GetLayerManager(PLayersChild* aShadowManager,
 
     if (sUsingOMTC) {
         CreateCompositor();
+
+        nsRefPtr<AsyncPanZoomController> asyncPanZoomController =
+            new AsyncPanZoomController(new CrossProcessContentController());
+        mGestureEventListener = new GestureEventListener(asyncPanZoomController.get());
+        mGestureEventListener->GetAsyncPanZoomController()->UpdateViewport(mBounds.width, mBounds.height);
+        asyncPanZoomController.forget();
+
+        if (mCompositorParent) {
+            // Make the pan zoom controller and compositor parent aware of each other.
+            mGestureEventListener->GetAsyncPanZoomController()->SetCompositorParent(mCompositorParent);
+            mCompositorParent->SetAsyncPanZoomController(mGestureEventListener->GetAsyncPanZoomController());
+        }
+
         if (mLayerManager)
             return mLayerManager;
     }
@@ -774,3 +856,4 @@ nsScreenManagerGonk::GetNumberOfScreens(PRUint32 *aNumberOfScreens)
     *aNumberOfScreens = 1;
     return NS_OK;
 }
+

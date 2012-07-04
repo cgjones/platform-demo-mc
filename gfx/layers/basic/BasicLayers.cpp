@@ -78,6 +78,8 @@ template<class Container>
 static void ContainerInsertAfter(Layer* aChild, Layer* aAfter, Container* aContainer);
 template<class Container>
 static void ContainerRemoveChild(Layer* aChild, Container* aContainer);
+template<class Container>
+static void ContainerComputeEffectiveTransforms(const gfx3DMatrix& aTransformToSurface, Container* aContainer);
 
 /*
  * Extract a mask surface for a mask layer
@@ -175,6 +177,9 @@ class BasicContainerLayer : public ContainerLayer, public BasicImplData {
   friend void ContainerInsertAfter(Layer* aChild, Layer* aAfter, Container* aContainer);
   template<class Container>
   friend void ContainerRemoveChild(Layer* aChild, Container* aContainer);
+  template<class Container>
+  friend void ContainerComputeEffectiveTransforms(const gfx3DMatrix& aTransformToSurface,
+                                                  Container* aContainer);
 
 public:
   BasicContainerLayer(BasicLayerManager* aManager) :
@@ -207,36 +212,7 @@ public:
 
   virtual void ComputeEffectiveTransforms(const gfx3DMatrix& aTransformToSurface)
   {
-    // We push groups for container layers if we need to, which always
-    // are aligned in device space, so it doesn't really matter how we snap
-    // containers.
-    gfxMatrix residual;
-    gfx3DMatrix idealTransform = GetLocalTransform()*aTransformToSurface;
-    idealTransform.ProjectTo2D();
-
-    if (!idealTransform.CanDraw2D()) {
-      mEffectiveTransform = idealTransform;
-      ComputeEffectiveTransformsForChildren(gfx3DMatrix());
-      ComputeEffectiveTransformForMaskLayer(gfx3DMatrix());
-      mUseIntermediateSurface = true;
-      return;
-    }
-
-    mEffectiveTransform = SnapTransform(idealTransform, gfxRect(0, 0, 0, 0), &residual);
-    // We always pass the ideal matrix down to our children, so there is no
-    // need to apply any compensation using the residual from SnapTransform.
-    ComputeEffectiveTransformsForChildren(idealTransform);
-
-    ComputeEffectiveTransformForMaskLayer(aTransformToSurface);
-
-    /* If we have a single child, it can just inherit our opacity,
-     * otherwise we need a PushGroup and we need to mark ourselves as using
-     * an intermediate surface so our children don't inherit our opacity
-     * via GetEffectiveOpacity.
-     * Having a mask layer always forces our own push group
-     */
-    mUseIntermediateSurface = GetMaskLayer() ||
-                              (GetEffectiveOpacity() != 1.0 && HasMultipleChildren());
+    ContainerComputeEffectiveTransforms(aTransformToSurface, this);
   }
 
   /**
@@ -378,6 +354,45 @@ ContainerRemoveChild(Layer* aChild, Container* aContainer)
 
   aContainer->DidRemoveChild(aChild);
   NS_RELEASE(aChild);
+}
+
+template<class Container>
+static void
+ContainerComputeEffectiveTransforms(const gfx3DMatrix& aTransformToSurface,
+                                    Container* aContainer)
+{
+  // We push groups for container layers if we need to, which always
+  // are aligned in device space, so it doesn't really matter how we snap
+  // containers.
+  gfxMatrix residual;
+  gfx3DMatrix idealTransform = aContainer->GetLocalTransform()*aTransformToSurface;
+  idealTransform.ProjectTo2D();
+
+  if (!idealTransform.CanDraw2D()) {
+    aContainer->mEffectiveTransform = idealTransform;
+    aContainer->ComputeEffectiveTransformsForChildren(gfx3DMatrix());
+    aContainer->ComputeEffectiveTransformForMaskLayer(gfx3DMatrix());
+    aContainer->mUseIntermediateSurface = true;
+    return;
+  }
+
+  aContainer->mEffectiveTransform =
+    aContainer->SnapTransform(idealTransform, gfxRect(0, 0, 0, 0), &residual);
+  // We always pass the ideal matrix down to our children, so there is no
+  // need to apply any compensation using the residual from SnapTransform.
+  aContainer->ComputeEffectiveTransformsForChildren(idealTransform);
+
+  aContainer->ComputeEffectiveTransformForMaskLayer(aTransformToSurface);
+
+  /* If we have a single child, it can just inherit our opacity,
+   * otherwise we need a PushGroup and we need to mark ourselves as using
+   * an intermediate surface so our children don't inherit our opacity
+   * via GetEffectiveOpacity.
+   * Having a mask layer always forces our own push group
+   */
+  aContainer->mUseIntermediateSurface =
+    aContainer->GetMaskLayer() || (aContainer->GetEffectiveOpacity() != 1.0 &&
+                                   aContainer->HasMultipleChildren());
 }
 
 class BasicThebesLayer;
@@ -2998,6 +3013,44 @@ BasicShadowableCanvasLayer::Paint(gfxContext* aContext, Layer* aMaskLayer)
                                 mBackBuffer);
 }
 
+class BasicShadowableRefLayer : public RefLayer, public BasicImplData,
+                                public BasicShadowableLayer {
+  template<class Container>
+  friend void ContainerComputeEffectiveTransforms(const gfx3DMatrix& aTransformToSurface,
+                                                  Container* aContainer);
+
+public:
+  BasicShadowableRefLayer(BasicShadowLayerManager* aManager) :
+    RefLayer(aManager, static_cast<BasicImplData*>(this))
+  {
+    MOZ_COUNT_CTOR(BasicShadowableRefLayer);
+  }
+  virtual ~BasicShadowableRefLayer()
+  {
+    MOZ_COUNT_DTOR(BasicShadowableRefLayer);
+  }
+
+  virtual Layer* AsLayer() { return this; }
+  virtual ShadowableLayer* AsShadowableLayer() { return this; }
+
+  virtual void Disconnect()
+  {
+    BasicShadowableLayer::Disconnect();
+  }
+
+  virtual void ComputeEffectiveTransforms(const gfx3DMatrix& aTransformToSurface)
+  {
+    ContainerComputeEffectiveTransforms(aTransformToSurface, this);
+  }
+
+private:
+  BasicShadowLayerManager* ShadowManager()
+  {
+    return static_cast<BasicShadowLayerManager*>(mManager);
+  }
+};
+
+
 class ShadowThebesLayerBuffer : public BasicThebesLayerBuffer
 {
   typedef BasicThebesLayerBuffer Base;
@@ -3173,6 +3226,10 @@ class BasicShadowContainerLayer : public ShadowContainerLayer, public BasicImplD
   friend void ContainerInsertAfter(Layer* aChild, Layer* aAfter, Container* aContainer);
   template<class Container>
   friend void ContainerRemoveChild(Layer* aChild, Container* aContainer);
+  template<class Container>
+  friend void ContainerComputeEffectiveTransforms(const gfx3DMatrix& aTransformToSurface,
+                                                  Container* aContainer);
+
 
 public:
   BasicShadowContainerLayer(BasicShadowLayerManager* aLayerManager) :
@@ -3196,36 +3253,7 @@ public:
 
   virtual void ComputeEffectiveTransforms(const gfx3DMatrix& aTransformToSurface)
   {
-    // We push groups for container layers if we need to, which always
-    // are aligned in device space, so it doesn't really matter how we snap
-    // containers.
-    gfxMatrix residual;
-    gfx3DMatrix idealTransform = GetLocalTransform()*aTransformToSurface;
-    idealTransform.ProjectTo2D();
-
-    if (!idealTransform.CanDraw2D()) {
-      mEffectiveTransform = idealTransform;
-      ComputeEffectiveTransformsForChildren(gfx3DMatrix());
-      ComputeEffectiveTransformForMaskLayer(gfx3DMatrix());
-      mUseIntermediateSurface = true;
-      return;
-    }
-
-    mEffectiveTransform = SnapTransform(idealTransform, gfxRect(0, 0, 0, 0), &residual);
-    // We always pass the ideal matrix down to our children, so there is no
-    // need to apply any compensation using the residual from SnapTransform.
-    ComputeEffectiveTransformsForChildren(idealTransform);
-
-    ComputeEffectiveTransformForMaskLayer(aTransformToSurface);
-
-    /* If we have a single child, it can just inherit our opacity,
-     * otherwise we need a PushGroup and we need to mark ourselves as using
-     * an intermediate surface so our children don't inherit our opacity
-     * via GetEffectiveOpacity.
-     * Having a mask layer always forces our own push group
-     */
-    mUseIntermediateSurface = GetMaskLayer() ||
-                              (GetEffectiveOpacity() != 1.0 && HasMultipleChildren());
+    ContainerComputeEffectiveTransforms(aTransformToSurface, this);
   }
 };
 
@@ -3551,6 +3579,17 @@ BasicShadowLayerManager::CreateCanvasLayer()
   MAYBE_CREATE_SHADOW(Canvas);
   return layer.forget();
 }
+
+already_AddRefed<RefLayer>
+BasicShadowLayerManager::CreateRefLayer()
+{
+  NS_ASSERTION(InConstruction(), "Only allowed in construction phase");
+  nsRefPtr<BasicShadowableRefLayer> layer =
+    new BasicShadowableRefLayer(this);
+  MAYBE_CREATE_SHADOW(Ref);
+  return layer.forget();
+}
+
 already_AddRefed<ShadowThebesLayer>
 BasicShadowLayerManager::CreateShadowThebesLayer()
 {
@@ -3589,6 +3628,14 @@ BasicShadowLayerManager::CreateShadowCanvasLayer()
   NS_ASSERTION(InConstruction(), "Only allowed in construction phase");
   nsRefPtr<ShadowCanvasLayer> layer = new BasicShadowCanvasLayer(this);
   return layer.forget();
+}
+
+already_AddRefed<ShadowRefLayer>
+BasicShadowLayerManager::CreateShadowRefLayer()
+{
+  NS_ASSERTION(InConstruction(), "Only allowed in construction phase");
+  // FIXME/IMPL
+  return nsnull;
 }
 
 BasicShadowLayerManager::BasicShadowLayerManager(nsIWidget* aWidget) :

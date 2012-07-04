@@ -56,6 +56,7 @@
 #include "nsIFrame.h"
 #include "nsIView.h"
 #include "nsEventListenerManager.h"
+#include "nsPrintfCString.h"
 #include "PCOMContentPermissionRequestChild.h"
 #include "xpcpublic.h"
 #include "IndexedDBChild.h"
@@ -529,6 +530,39 @@ TabChild::~TabChild()
     }
 }
 
+
+bool
+TabChild::RecvHACK_UpdateFrame(const nsIntRect& aDisplayPort,
+                               const nsIntPoint& aScrollOffset,
+                               const gfxSize& aResolution,
+                               const nsIntRect& aScreenSize)
+{
+    nsCString data;
+    // XXX: When we start removing browser.js code, we can stop doing weird
+    // stringifying like this.
+    data += nsPrintfCString("{ \"x\" : %d", aScrollOffset.x);
+    data += nsPrintfCString(", \"y\" : %d", aScrollOffset.y);
+    // We don't treat the x and y scales any differently for this
+    // semi-platform-specific code.
+    data += nsPrintfCString(", \"zoom\" : %f", aResolution.width);
+    data += nsPrintfCString(", \"displayPort\" : ");
+        data += nsPrintfCString("{ \"left\" : %d", aDisplayPort.X());
+        data += nsPrintfCString(", \"top\" : %d", aDisplayPort.Y());
+        data += nsPrintfCString(", \"right\" : %d", aDisplayPort.XMost());
+        data += nsPrintfCString(", \"bottom\" : %d", aDisplayPort.YMost());
+        data += nsPrintfCString(", \"resolution\" : %f", aResolution.width);
+        data += nsPrintfCString(" }");
+    data += nsPrintfCString(", \"screenSize\" : ");
+        data += nsPrintfCString("{ \"width\" : %d", aScreenSize.width);
+        data += nsPrintfCString(", \"height\" : %d", aScreenSize.height);
+        data += nsPrintfCString(" }");
+    data += nsPrintfCString(" }");
+
+    return RecvAsyncMessage(NS_LITERAL_STRING("Viewport:Change"),
+                            NS_ConvertUTF8toUTF16(data));
+}
+
+
 bool
 TabChild::RecvLoadURL(const nsCString& uri)
 {
@@ -989,7 +1023,15 @@ TabChild::InitWidget(const nsIntSize& size)
                       "shouldn't have a shadow manager yet");
     LayerManager::LayersBackend be;
     PRInt32 maxTextureSize;
-    PLayersChild* shadowManager = remoteFrame->SendPLayersConstructor(&be, &maxTextureSize);
+    int64_t id;
+    PLayersChild* shadowManager = remoteFrame->SendPLayersConstructor(&be, &maxTextureSize, &id);
+
+
+
+    printf_stderr("[TabChild] Got shadow tree with ID " PRId64 "\n", id);
+
+
+
     if (!shadowManager) {
       NS_WARNING("failed to construct LayersChild");
       // This results in |remoteFrame| being deleted.
@@ -998,7 +1040,7 @@ TabChild::InitWidget(const nsIntSize& size)
     }
 
     ShadowLayerForwarder* lf =
-        mWidget->GetLayerManager(shadowManager, be)->AsShadowForwarder();
+        mWidget->GetLayerManager(shadowManager, be, id)->AsShadowForwarder();
     NS_ABORT_IF_FALSE(lf && lf->HasShadowManager(),
                       "PuppetWidget should have shadow manager");
     lf->SetParentBackendType(be);

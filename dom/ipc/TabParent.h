@@ -29,6 +29,11 @@ class nsIDOMElement;
 class nsIURI;
 
 namespace mozilla {
+
+namespace layers {
+struct FrameMetrics;
+}
+
 namespace dom {
 
 class ContentDialogParent : public PContentDialogParent {};
@@ -38,7 +43,12 @@ class TabParent : public PBrowserParent
                 , public nsIAuthPromptProvider
                 , public nsISecureBrowserUI
 {
+    typedef mozilla::layers::FrameMetrics FrameMetrics;
+
 public:
+    static void HACK_UpdateFrame(const FrameMetrics& aFrameMetrics);
+    static void HACK_LastPainted(PBrowserParent* aBrowser);
+
     TabParent();
     virtual ~TabParent();
     nsIDOMElement* GetOwnerElement() { return mFrameElement; }

@@ -172,6 +172,12 @@ public:
   virtual PRInt32 GetViewportLength() = 0;
   virtual PRInt32 GetPageStart() = 0;
   virtual PRInt32 GetPageLength() = 0;
+  /**
+   * Checks if an axis will overscroll in both directions by computing the
+   * content rect and checking that its height/width (depending on the axis)
+   * does not overextend past the viewport.
+   */
+  virtual bool ScaleWillOverscrollBothWays(float scale) = 0;
   PRInt32 GetViewportEnd();
   PRInt32 GetPageEnd();
 
@@ -189,6 +195,7 @@ public:
   PRInt32 GetViewportLength();
   PRInt32 GetPageStart();
   PRInt32 GetPageLength();
+  bool ScaleWillOverscrollBothWays(float scale);
 };
 
 class AxisY : public Axis {
@@ -198,6 +205,7 @@ public:
   PRInt32 GetViewportLength();
   PRInt32 GetPageStart();
   PRInt32 GetPageLength();
+  bool ScaleWillOverscrollBothWays(float scale);
 };
 
 }

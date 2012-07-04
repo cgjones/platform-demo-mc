@@ -435,6 +435,8 @@ public:
 
     virtual int GetScreenDepth() const;
 
+    static void InitOffMainThreadCompositing();
+
 protected:
     gfxPlatform();
     virtual ~gfxPlatform();

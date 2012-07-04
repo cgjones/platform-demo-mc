@@ -619,8 +619,8 @@ void AsyncPanZoomController::ForceRepaint() {
 }
 
 void AsyncPanZoomController::SendViewportChange() {
-  nsIntRect displayPort = CalculateDisplayPort();
-  mGeckoContentController->SendViewportChange(mFrameMetrics, displayPort);
+  mFrameMetrics.mDisplayPort = CalculateDisplayPort();
+  mGeckoContentController->SendViewportChange(mFrameMetrics);
 }
 
 void AsyncPanZoomController::GetContentTransformForFrame(const FrameMetrics& aFrame,
@@ -649,7 +649,7 @@ void AsyncPanZoomController::GetContentTransformForFrame(const FrameMetrics& aFr
   float tempScaleDiffY = rootScaleY * localScaleY;
 
   nsIntPoint metricsScrollOffset(0, 0);
-  if (aFrame.IsScrollable())
+  //if (aFrame.IsScrollable())
     metricsScrollOffset = aFrame.mViewportScrollOffset;
 
   nsIntPoint scrollCompensation(
@@ -669,6 +669,11 @@ void AsyncPanZoomController::GetContentTransformForFrame(const FrameMetrics& aFr
                     NS_MIN(offsetY, (float)(localContentRect.YMost() - aWidgetSize.height)));
   *aReverseViewTranslation = gfxPoint(offsetX - metricsScrollOffset.x,
                                       offsetY - metricsScrollOffset.y);
+
+  NS_ASSERTION(false, "@@@@@@@@@@@@@@@ GOT CONTENT TRANSFORM:");
+  char thing[512];
+  sprintf(thing, "%d %d %d %d", mFrameMetrics.mViewportScrollOffset.x, mFrameMetrics.mViewportScrollOffset.y, aFrame.mViewportScrollOffset.x, aFrame.mViewportScrollOffset.y);
+  NS_ASSERTION(false, thing);
 
 }
 

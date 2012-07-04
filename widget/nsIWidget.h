@@ -1040,14 +1040,14 @@ class nsIWidget : public nsISupports {
      */
     inline LayerManager* GetLayerManager(bool* aAllowRetaining = nsnull)
     {
-        return GetLayerManager(nsnull, LayerManager::LAYERS_NONE,
+        return GetLayerManager(nsnull, LayerManager::LAYERS_NONE, -1,
                                LAYER_MANAGER_CURRENT, aAllowRetaining);
     }
 
     inline LayerManager* GetLayerManager(LayerManagerPersistence aPersistence,
                                          bool* aAllowRetaining = nsnull)
     {
-        return GetLayerManager(nsnull, LayerManager::LAYERS_NONE,
+        return GetLayerManager(nsnull, LayerManager::LAYERS_NONE, -1,
                                aPersistence, aAllowRetaining);
     }
 
@@ -1058,6 +1058,7 @@ class nsIWidget : public nsISupports {
      */
     virtual LayerManager* GetLayerManager(PLayersChild* aShadowManager,
                                           LayersBackend aBackendHint,
+                                          int64_t aId,
                                           LayerManagerPersistence aPersistence = LAYER_MANAGER_CURRENT,
                                           bool* aAllowRetaining = nsnull) = 0;
 
@@ -1559,7 +1560,7 @@ class nsIWidget : public nsISupports {
     virtual PRUint32 GetGLFrameBufferFormat() { return 0; /*GL_NONE*/ }
 
     /**
-     * Return true if widget has it's own GL context
+     * Return true if widget has its own GL context
      */
     virtual bool HasGLContext() { return false; }
 

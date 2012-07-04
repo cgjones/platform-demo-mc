@@ -13,15 +13,17 @@ include protocol PRenderFrame;
 include protocol POfflineCacheUpdate;
 include protocol PIndexedDB;
 
-include "mozilla/dom/TabMessageUtils.h";
 include "gfxMatrix.h";
-include "mozilla/net/NeckoMessageUtils.h";
 include "IPC/nsGUIEventIPC.h";
-
+include "mozilla/dom/TabMessageUtils.h";
+include "mozilla/net/NeckoMessageUtils.h";
 using gfxMatrix;
+using gfxSize;
 using IPC::URI;
 using nsCompositionEvent;
 using nsIMEUpdatePreference;
+using nsIntPoint;
+using nsIntRect;
 using nsIntSize;
 using nsQueryContentEvent;
 using nsRect;
@@ -47,6 +49,14 @@ rpc protocol PBrowser
     manages PRenderFrame;
     manages POfflineCacheUpdate;
     manages PIndexedDB;
+
+
+child:
+    HACK_UpdateFrame(nsIntRect displayPort,
+                     nsIntPoint scrollOffset,
+                     gfxSize resolution,
+                     nsIntRect screenSize);
+
 
 both:
     AsyncMessage(nsString aMessage, nsString aJSON);

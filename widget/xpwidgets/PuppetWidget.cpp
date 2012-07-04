@@ -6,6 +6,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "mozilla/dom/PBrowserChild.h"
+#include "mozilla/layers/PLayersChild.h"
 #include "BasicLayers.h"
 #if defined(MOZ_ENABLE_D3D10_LAYER)
 # include "LayerManagerD3D10.h"
@@ -13,6 +14,7 @@
 
 #include "gfxPlatform.h"
 #include "mozilla/Hal.h"
+#include "mozilla/layers/CompositorChild.h"
 #include "PuppetWidget.h"
 
 using namespace mozilla::dom;
@@ -280,6 +282,7 @@ PuppetWidget::DispatchEvent(nsGUIEvent* event, nsEventStatus& aStatus)
 LayerManager*
 PuppetWidget::GetLayerManager(PLayersChild* aShadowManager,
                               LayersBackend aBackendHint,
+                              int64_t aId,
                               LayerManagerPersistence aPersistence,
                               bool* aAllowRetaining)
 {
@@ -298,6 +301,24 @@ PuppetWidget::GetLayerManager(PLayersChild* aShadowManager,
     if (!mLayerManager) {
       mLayerManager = new BasicShadowLayerManager(this);
       mLayerManager->AsShadowForwarder()->SetShadowManager(aShadowManager);
+
+      if (aId >= 0) {
+
+
+
+        printf_stderr("[PuppetWidget] Creating indirect manager for shadow tree with ID " PRId64 "\n", aId);
+
+
+
+        mIndirectLayerManager = mLayerManager;
+        mIndirectLayerManager->SetId(aId);
+
+        int32_t maxTextureSize;
+        PLayersChild* direct = CompositorChild::Get()->SendPLayersConstructor(aBackendHint, aId, &maxTextureSize);
+        mLayerManager = new BasicShadowLayerManager(this);
+        mLayerManager->AsShadowForwarder()->SetShadowManager(direct);
+        mLayerManager->AsShadowForwarder()->SetMaxTextureSize(maxTextureSize);
+      }
     }
   }
   if (aAllowRetaining) {
@@ -501,9 +522,24 @@ PuppetWidget::DispatchPaintEvent()
       nsRefPtr<gfxContext> ctx = new gfxContext(mSurface);
       ctx->Rectangle(gfxRect(0,0,0,0));
       ctx->Clip();
+
+
+      printf_stderr("[PuppetWidget] Painting main layer tree\n");
+
+
       AutoLayerManagerSetup setupLayerManager(this, ctx,
                                               BasicLayerManager::BUFFER_NONE);
-      DispatchEvent(&event, status);  
+      DispatchEvent(&event, status);
+      if (mIndirectLayerManager) {
+
+
+
+        printf_stderr("      (and to indirect tree)\n");
+
+
+        mIndirectLayerManager->AsShadowForwarder()->GetShadowManager()
+          ->SendUpdateNoSwap(AutoInfallibleTArray<Edit, 0>(), false);
+      }
     }
   }
 

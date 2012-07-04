@@ -28,6 +28,10 @@ namespace ipc {
 class TestShellParent;
 }
 
+namespace layers {
+class PCompositorParent;
+}
+
 namespace dom {
 
 class TabParent;
@@ -41,6 +45,7 @@ class ContentParent : public PContentParent
 private:
     typedef mozilla::ipc::GeckoChildProcessHost GeckoChildProcessHost;
     typedef mozilla::ipc::TestShellParent TestShellParent;
+    typedef mozilla::layers::PCompositorParent PCompositorParent;
 
 public:
     static ContentParent* GetNewOrUsed();
@@ -95,6 +100,9 @@ private:
     virtual ~ContentParent();
 
     void Init();
+
+    PCompositorParent* AllocPCompositor(Transport* aTransport,
+                                        ProcessId aOtherProcess) MOZ_OVERRIDE;
 
     virtual PBrowserParent* AllocPBrowser(const PRUint32& aChromeFlags, const bool& aIsBrowserFrame);
     virtual bool DeallocPBrowser(PBrowserParent* frame);

@@ -19,6 +19,11 @@ struct ResourceMapping;
 struct OverrideMapping;
 
 namespace mozilla {
+
+namespace layers {
+class PCompositorChild;
+}
+
 namespace dom {
 
 class AlertObserver;
@@ -28,6 +33,8 @@ class PStorageChild;
 
 class ContentChild : public PContentChild
 {
+    typedef layers::PCompositorChild PCompositorChild;
+
 public:
     ContentChild();
     virtual ~ContentChild();
@@ -55,6 +62,9 @@ public:
     /* if you remove this, please talk to cjones or dougt */
     virtual bool RecvDummy(Shmem& foo) { return true; }
 
+    PCompositorChild* AllocPCompositor(Transport* aTransport,
+                                       ProcessId aOtherProcess) MOZ_OVERRIDE;
+
     virtual PBrowserChild* AllocPBrowser(const PRUint32& aChromeFlags,
                                          const bool& aIsBrowserFrame);
     virtual bool DeallocPBrowser(PBrowserChild*);
@@ -65,8 +75,8 @@ public:
     virtual bool
     DeallocPCrashReporter(PCrashReporterChild*);
 
-    NS_OVERRIDE virtual PHalChild* AllocPHal();
-    NS_OVERRIDE virtual bool DeallocPHal(PHalChild*);
+    virtual PHalChild* AllocPHal() MOZ_OVERRIDE;
+    virtual bool DeallocPHal(PHalChild*) MOZ_OVERRIDE;
 
     virtual PMemoryReportRequestChild*
     AllocPMemoryReportRequest();
@@ -151,11 +161,9 @@ public:
     PRUint64 GetID() { return mID; }
 
 private:
-    NS_OVERRIDE
-    virtual void ActorDestroy(ActorDestroyReason why);
+    virtual void ActorDestroy(ActorDestroyReason why) MOZ_OVERRIDE;
 
-    NS_OVERRIDE
-    virtual void ProcessingError(Result what);
+    virtual void ProcessingError(Result what) MOZ_OVERRIDE;
 
     /**
      * Exit *now*.  Do not shut down XPCOM, do not pass Go, do not run

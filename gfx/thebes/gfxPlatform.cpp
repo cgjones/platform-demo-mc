@@ -234,6 +234,41 @@ gfxPlatform::GetPlatform()
     return gPlatform;
 }
 
+/*static*/void
+gfxPlatform::InitOffMainThreadCompositing()
+{
+  static bool inited;
+  if (inited) {
+    return;
+  }
+  inited = true;
+
+  bool useOffMainThreadCompositing = false;
+#ifdef MOZ_X11
+  // On X11 platforms only use OMTC if firefox was initalized with thread-safe 
+  // X11 (else it would crash).
+  useOffMainThreadCompositing = (PR_GetEnv("MOZ_USE_OMTC") != NULL);
+#else
+  useOffMainThreadCompositing = Preferences::GetBool(
+    "layers.offmainthreadcomposition.enabled", 
+    false);
+#endif
+
+  printf_stderr("Are we using off-main-thread compositing? %s\n",
+                useOffMainThreadCompositing ? "yes" : "NO");
+
+  if (useOffMainThreadCompositing) {
+    CompositorParent::CreateCompositorMap();
+    CompositorParent::CreateThread();
+
+    ImageBridgeChild::Create(new base::Thread("ImageBridgeChild"));
+    ImageBridgeChild* imageBridgeChild = ImageBridgeChild::GetSingleton();
+    ImageBridgeParent* imageBridgeParent = new ImageBridgeParent(
+      CompositorParent::CompositorLoop());
+    imageBridgeChild->ConnectAsync(imageBridgeParent);
+  }
+}
+
 void
 gfxPlatform::Init()
 {
@@ -250,39 +285,7 @@ gfxPlatform::Init()
     sCmapDataLog = PR_NewLogModule("cmapdata");;
 #endif
 
-    bool useOffMainThreadCompositing = false;
-#ifdef MOZ_X11
-    // On X11 platforms only use OMTC if firefox was initalized with thread-safe 
-    // X11 (else it would crash).
-    useOffMainThreadCompositing = (PR_GetEnv("MOZ_USE_OMTC") != NULL);
-#else
-    useOffMainThreadCompositing = Preferences::GetBool(
-          "layers.offmainthreadcomposition.enabled", 
-          false);
-    // Until https://bugzilla.mozilla.org/show_bug.cgi?id=745148 lands,
-    // we use either omtc or content processes, but not both.  Prefer
-    // OOP content to omtc.  (Currently, this only affects b2g.)
-    //
-    // See https://bugzilla.mozilla.org/show_bug.cgi?id=761962 .
-    if (!Preferences::GetBool("dom.ipc.tabs.disabled", true)) {
-        // Disable omtc if OOP content isn't force-disabled.
-        useOffMainThreadCompositing = false;
-    }
-#endif
-
-
-    if (useOffMainThreadCompositing) {
-        CompositorParent::CreateCompositorMap();
-        CompositorParent::CreateThread();
-
-        mozilla::layers::ImageBridgeChild::Create(new base::Thread("ImageBridgeChild"));
-        mozilla::layers::ImageBridgeChild* imageBridgeChild
-            = mozilla::layers::ImageBridgeChild::GetSingleton();
-        mozilla::layers::ImageBridgeParent* imageBridgeParent
-            = new mozilla::layers::ImageBridgeParent(
-                CompositorParent::CompositorLoop());
-        imageBridgeChild->ConnectAsync(imageBridgeParent);
-    }
+    InitOffMainThreadCompositing();
 
     /* Initialize the GfxInfo service.
      * Note: we can't call functions on GfxInfo that depend

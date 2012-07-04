@@ -126,13 +126,11 @@ public:
   // nsBaseWidget methods we override
   //
 
-//NS_IMETHOD              CaptureMouse(bool aCapture);
-  virtual LayerManager*
-  GetLayerManager(PLayersChild* aShadowManager = nsnull,
-                  LayersBackend aBackendHint = LayerManager::LAYERS_NONE,
-                  LayerManagerPersistence aPersistence = LAYER_MANAGER_CURRENT,
-                  bool* aAllowRetaining = nsnull);
-//  virtual nsDeviceContext* GetDeviceContext();
+  virtual LayerManager*   GetLayerManager(PLayersChild* aShadowManager = nsnull,
+                                          LayersBackend aBackendHint = LayerManager::LAYERS_NONE,
+                                          int64_t aId = -1,
+                                          LayerManagerPersistence aPersistence = LAYER_MANAGER_CURRENT,
+                                          bool* aAllowRetaining = nsnull);
   virtual gfxASurface*      GetThebesSurface();
 
   NS_IMETHOD ResetInputState();
@@ -182,6 +180,7 @@ private:
   // Since it's possible for TabChild to outlive the PuppetWidget,
   // we clear this weak reference in Destroy()
   PBrowserChild *mTabChild;
+  nsRefPtr<LayerManager> mIndirectLayerManager;
   // The "widget" to which we delegate events if we don't have an
   // event handler.
   nsRefPtr<PuppetWidget> mChild;

@@ -141,9 +141,11 @@ PRInt32 Axis::DisplacementWillOverscrollAmount(PRInt32 displacement) {
 Axis::Overscroll Axis::ScaleWillOverscroll(float scale, PRInt32 focus) {
   PRInt32 originAfterScale = NS_lround((GetOrigin() + focus) * scale - focus);
 
+  bool both = ScaleWillOverscrollBothWays(scale);
   bool minus = originAfterScale < NS_lround(GetPageStart() * scale);
   bool plus = (originAfterScale + GetViewportLength()) > NS_lround(GetPageEnd() * scale);
-  if (minus && plus) {
+
+  if ((minus && plus) || both) {
     return OVERSCROLL_BOTH;
   } else if (minus) {
     return OVERSCROLL_MINUS;
@@ -201,6 +203,22 @@ PRInt32 AxisX::GetPageLength() {
   return pageRect.width;
 }
 
+bool AxisX::ScaleWillOverscrollBothWays(float scale) {
+  const FrameMetrics& metrics = mAsyncPanZoomController->GetFrameMetrics();
+
+  float currentScale = metrics.mResolution.width;
+  gfx::Rect cssContentRect = metrics.mCSSContentRect;
+  nsIntRect contentRect = nsIntRect(NS_lround(cssContentRect.x),
+                                    NS_lround(cssContentRect.y),
+                                    NS_lround(cssContentRect.width),
+                                    NS_lround(cssContentRect.height)),
+            viewport = metrics.mViewport;
+
+  contentRect.ScaleRoundOut(scale * currentScale);
+
+  return contentRect.width < viewport.width;
+}
+
 AxisY::AxisY(AsyncPanZoomController* aAsyncPanZoomController)
   : Axis(aAsyncPanZoomController)
 {
@@ -226,5 +244,22 @@ PRInt32 AxisY::GetPageLength() {
   nsIntRect pageRect = mAsyncPanZoomController->GetFrameMetrics().mContentRect;
   return pageRect.height;
 }
+
+bool AxisY::ScaleWillOverscrollBothWays(float scale) {
+  const FrameMetrics& metrics = mAsyncPanZoomController->GetFrameMetrics();
+
+  float currentScale = metrics.mResolution.width;
+  gfx::Rect cssContentRect = metrics.mCSSContentRect;
+  nsIntRect contentRect = nsIntRect(NS_lround(cssContentRect.x),
+                                    NS_lround(cssContentRect.y),
+                                    NS_lround(cssContentRect.width),
+                                    NS_lround(cssContentRect.height)),
+            viewport = metrics.mViewport;
+
+  contentRect.ScaleRoundOut(scale * currentScale);
+
+  return contentRect.height < viewport.height;
+}
+
 }
 }

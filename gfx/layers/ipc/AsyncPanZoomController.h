@@ -281,12 +281,6 @@ protected:
   void ScaleWithFocus(float aScale, const nsIntPoint& aFocus);
 
   /**
-   * Sets the animation runnable. On the next composite, this runnable will be
-   * fired and sent to the Java UI thread.
-   */
-  void SetAnimationRunnable(nsIRunnable* aRunnable);
-
-  /**
    * Notifies the platform-specific code that it should redraw the page. All of
    * the viewport metrics must be set before calling this.
    * The monitor must be held while calling this.

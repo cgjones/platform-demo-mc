@@ -30,6 +30,7 @@ class ShadowContainerLayer;
 class ShadowImageLayer;
 class ShadowColorLayer;
 class ShadowCanvasLayer;
+class ShadowRefLayer;
 class SurfaceDescriptor;
 class ThebesBuffer;
 class TiledLayerComposer;
@@ -116,6 +117,7 @@ public:
   void CreatedImageLayer(ShadowableLayer* aImage);
   void CreatedColorLayer(ShadowableLayer* aColor);
   void CreatedCanvasLayer(ShadowableLayer* aCanvas);
+  void CreatedRefLayer(ShadowableLayer* aRef);
 
   /**
    * The specified layer is destroying its buffers.
@@ -423,6 +425,8 @@ public:
   virtual already_AddRefed<ShadowColorLayer> CreateShadowColorLayer() = 0;
   /** CONSTRUCTION PHASE ONLY */
   virtual already_AddRefed<ShadowCanvasLayer> CreateShadowCanvasLayer() = 0;
+  /** CONSTRUCTION PHASE ONLY */
+  virtual already_AddRefed<ShadowRefLayer> CreateShadowRefLayer() = 0;
 
   static void PlatformSyncBeforeReplyUpdate();
 
@@ -693,6 +697,21 @@ public:
 protected:
   ShadowColorLayer(LayerManager* aManager, void* aImplData)
     : ColorLayer(aManager, aImplData)
+  {}
+};
+
+
+class ShadowRefLayer : public ShadowLayer,
+                       public RefLayer
+{
+public:
+  virtual ShadowLayer* AsShadowLayer() { return this; }
+
+  MOZ_LAYER_DECL_NAME("ShadowRefLayer", TYPE_SHADOW)
+
+protected:
+  ShadowRefLayer(LayerManager* aManager, void* aImplData)
+    : RefLayer(aManager, aImplData)
   {}
 };
 

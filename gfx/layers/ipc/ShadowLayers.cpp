@@ -165,6 +165,11 @@ ShadowLayerForwarder::CreatedCanvasLayer(ShadowableLayer* aCanvas)
 {
   CreatedLayer<OpCreateCanvasLayer>(mTxn, aCanvas);
 }
+void
+ShadowLayerForwarder::CreatedRefLayer(ShadowableLayer* aRef)
+{
+  CreatedLayer<OpCreateRefLayer>(mTxn, aRef);
+}
 
 void
 ShadowLayerForwarder::DestroyedThebesBuffer(ShadowableLayer* aThebes,
