@@ -567,7 +567,7 @@ CompositorParent::ApplyAsyncPanZoom(Layer* aLayer)
     //TranslateFixedLayers(aLayer, reverseViewTranslation);
     char wtf[512];
     sprintf(wtf, "################## FRAME IS SCROLLABLE %d %d %d %d", metrics.mViewportScrollOffset.x, metrics.mViewportScrollOffset.y, metrics.mDisplayPort.x, metrics.mDisplayPort.y);
-    NS_ASSERTION(false, wtf);
+    NS_ASSERTION(false, wtf); 
   }
 }
 

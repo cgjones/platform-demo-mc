@@ -253,11 +253,13 @@ const AsyncPanZoom = {
                                  (aDisplayPort.right - aDisplayPort.left) / resolution,
                                  (aDisplayPort.bottom - aDisplayPort.top) / resolution,
                                  element);
+    //cwu.setDisplayPortForElement(aDisplayPort.left, aDisplayPort.top, aDisplayPort.right, aDisplayPort.bottom, element);
     var thing1 = (aDisplayPort.left / resolution) - geckoScrollX;
     var thing2 = (aDisplayPort.top / resolution) - geckoScrollY;
     var thing3 = (aDisplayPort.right - aDisplayPort.left) / resolution;
     var thing4 = (aDisplayPort.bottom - aDisplayPort.top) / resolution;
-    dump("&&&&&&&&&&&& DISPLAYPORT SET: " + thing1 + " " + thing2 + " " + thing3 + " " + thing4);
+    dump("&&&&&&&&&&&& SCROLL: " + geckoScrollX + " " + geckoScrollY);
+    dump("&&&&&&&&&&&& DISPLAYPORT SET!!: " + thing1 + " " + thing2 + " " + thing3 + " " + thing4);
   },
 
   /*
