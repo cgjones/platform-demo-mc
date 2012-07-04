@@ -26,7 +26,6 @@ const AsyncPanZoom = {
     Services.obs.addObserver(this, "Gesture:CancelTouch", false);
 
     addMessageListener("Viewport:Change", function(data) {
-      dump("************MESSAGE " + data.json.toSource());
       let aViewport = data.json;
 
       asyncPanZoom.screenWidth = aViewport.screenSize.width;
@@ -53,7 +52,6 @@ const AsyncPanZoom = {
   },
 
   observe: function(aSubject, aTopic, aData) {
-    dump("*************OBSERVE: " + aTopic);
     switch (aTopic) {
       case 'Gesture:CancelTouch':
         //this._cancelTapHighlight();
@@ -222,8 +220,6 @@ const AsyncPanZoom = {
     if (!element)
       return;
 
-    dump("*****GOT PAST ELEMENT");
-
     // we should never be drawing background tabs at resolutions other than the user-
     // visible zoom. for foreground tabs, however, if we are drawing at some other
     // resolution, we need to set the resolution as specified.
@@ -254,12 +250,6 @@ const AsyncPanZoom = {
                                  (aDisplayPort.bottom - aDisplayPort.top) / resolution,
                                  element);
     //cwu.setDisplayPortForElement(aDisplayPort.left, aDisplayPort.top, aDisplayPort.right, aDisplayPort.bottom, element);
-    var thing1 = (aDisplayPort.left / resolution) - geckoScrollX;
-    var thing2 = (aDisplayPort.top / resolution) - geckoScrollY;
-    var thing3 = (aDisplayPort.right - aDisplayPort.left) / resolution;
-    var thing4 = (aDisplayPort.bottom - aDisplayPort.top) / resolution;
-    dump("&&&&&&&&&&&& SCROLL: " + geckoScrollX + " " + geckoScrollY);
-    dump("&&&&&&&&&&&& DISPLAYPORT SET!!: " + thing1 + " " + thing2 + " " + thing3 + " " + thing4);
   },
 
   /*

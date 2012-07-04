@@ -523,20 +523,11 @@ PuppetWidget::DispatchPaintEvent()
       ctx->Rectangle(gfxRect(0,0,0,0));
       ctx->Clip();
 
-
-      printf_stderr("[PuppetWidget] Painting main layer tree\n");
-
-
       AutoLayerManagerSetup setupLayerManager(this, ctx,
                                               BasicLayerManager::BUFFER_NONE);
       DispatchEvent(&event, status);
       if (mIndirectLayerManager) {
-
-
-
-        printf_stderr("      (and to indirect tree)\n");
-
-
+        // FIXME this sucks.  Do something better.
         mIndirectLayerManager->AsShadowForwarder()->GetShadowManager()
           ->SendUpdateNoSwap(AutoInfallibleTArray<Edit, 0>(), false);
       }
