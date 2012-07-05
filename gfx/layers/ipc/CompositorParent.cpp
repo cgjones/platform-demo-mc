@@ -155,8 +155,8 @@ CompositorParent::ScheduleRenderOnCompositorThread()
 void
 CompositorParent::PauseComposition()
 {
-  NS_ABORT_IF_FALSE(CompositorThreadID() == PlatformThread::CurrentId(),
-                    "PauseComposition() can only be called on the compositor thread");
+  //NS_ABORT_IF_FALSE(CompositorThreadID() == PlatformThread::CurrentId(),
+  //                  "PauseComposition() can only be called on the compositor thread");
 
   MonitorAutoLock lock(mPauseCompositionMonitor);
 
@@ -175,8 +175,8 @@ CompositorParent::PauseComposition()
 void
 CompositorParent::ResumeComposition()
 {
-  NS_ABORT_IF_FALSE(CompositorThreadID() == PlatformThread::CurrentId(),
-                    "ResumeComposition() can only be called on the compositor thread");
+  //NS_ABORT_IF_FALSE(CompositorThreadID() == PlatformThread::CurrentId(),
+  //                  "ResumeComposition() can only be called on the compositor thread");
 
   MonitorAutoLock lock(mResumeCompositionMonitor);
 
@@ -326,8 +326,8 @@ private:
 void
 CompositorParent::Composite()
 {
-  NS_ABORT_IF_FALSE(CompositorThreadID() == PlatformThread::CurrentId(),
-                    "Composite can only be called on the compositor thread");
+  //NS_ABORT_IF_FALSE(CompositorThreadID() == PlatformThread::CurrentId(),
+  //                  "Composite can only be called on the compositor thread");
   mCurrentCompositeTask = NULL;
 
   mLastCompose = mozilla::TimeStamp::Now();

@@ -115,7 +115,8 @@ nsEventStatus GestureEventListener::HandlePinchEvent(const nsTouchEvent& event, 
     }
   }
 
-  if (uniqueTouches > 1 && !clearTouches) {
+  if (/*uniqueTouches > 1*/ mTouches.Length() > 1 && !clearTouches) {
+    NS_ASSERTION(false, "((((((((((((((((((((((((((MULTIPLE TOUCHES");
     SingleTouchData &firstTouch = mTouches[0],
                     &secondTouch = mTouches[mTouches.Length() - 1];
     nsIntPoint focusPoint =
@@ -138,6 +139,7 @@ nsEventStatus GestureEventListener::HandlePinchEvent(const nsTouchEvent& event, 
 
       mState = InPinchGesture;
     } else {
+      NS_ASSERTION(false, "((((((((((((((((((((((((SENDING SCALE");
       nsPinchEvent pinchEvent(true, NS_PINCH_SCALE, nsnull);
       pinchEvent.time = event.time;
       pinchEvent.focusPoint = focusPoint;
@@ -151,7 +153,7 @@ nsEventStatus GestureEventListener::HandlePinchEvent(const nsTouchEvent& event, 
   } else if (mState == InPinchGesture) {
     nsPinchEvent pinchEvent(true, NS_PINCH_END, nsnull);
     pinchEvent.time = event.time;
-    pinchEvent.focusPoint = mTouches[0].GetPoint();
+    pinchEvent.focusPoint = event.touchData[0].GetPoint();
     for (size_t i = 0; i < mTouches.Length(); i++) {
       char thing[256];
       sprintf(thing, "ID LEFT[%d]: %d", i, mTouches[i].GetIdentifier());

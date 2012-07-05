@@ -231,6 +231,8 @@ nsEventStatus AsyncPanZoomController::OnScale(const nsPinchEvent& event) {
     return nsEventStatus_eConsumeNoDefault;
   }
 
+  NS_ASSERTION(false, "SCALE!!!!!!!!");
+
   float spanRatio = event.currentSpan / event.previousSpan;
 
   {
@@ -300,7 +302,7 @@ nsEventStatus AsyncPanZoomController::OnScale(const nsPinchEvent& event) {
       }
     }
 
-    if (doScale) {
+    if (doScale || true) {
       ScaleWithFocus(scale * spanRatio,
                      focusPoint);
 
