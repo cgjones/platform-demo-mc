@@ -329,6 +329,8 @@ ElementAnimations::HasAnimationOfProperty(nsCSSProperty aProperty) const
 bool
 ElementAnimations::CanPerformOnCompositorThread() const
 {
+  if (mElementProperty != nsGkAtoms::animationsProperty)
+    return false;
   for (PRUint32 animIdx = mAnimations.Length(); animIdx-- != 0; ) {
     const ElementAnimation &anim = mAnimations[animIdx];
     if (anim.mIterationDuration.ToMilliseconds() <= 0.0) {

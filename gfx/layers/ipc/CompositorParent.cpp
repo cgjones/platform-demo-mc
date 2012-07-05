@@ -561,10 +561,7 @@ CompositorParent::ApplyAsyncPanZoom(Layer* aLayer)
                                                          &reverseViewTranslation);
     ShadowLayer* shadow = aLayer->AsShadowLayer();
     shadow->SetShadowTransform(transform * treeTransform);
-    //TranslateFixedLayers(aLayer, reverseViewTranslation);
-    char wtf[512];
-    sprintf(wtf, "################## FRAME IS SCROLLABLE %d %d %d %d", metrics.mViewportScrollOffset.x, metrics.mViewportScrollOffset.y, metrics.mDisplayPort.x, metrics.mDisplayPort.y);
-    NS_ASSERTION(false, wtf); 
+    TranslateFixedLayers(aLayer, reverseViewTranslation);
   }
 }
 
@@ -929,8 +926,6 @@ OpenCompositor(CrossProcessCompositorParent* aCompositor,
                Transport* aTransport, ProcessHandle aHandle,
                MessageLoop* aIOLoop)
 {
-  printf_stderr("CrossProcessCompositorParent::Open\n");
-
   DebugOnly<bool> ok = aCompositor->Open(aTransport, aHandle, aIOLoop);
   MOZ_ASSERT(ok);
 }
@@ -938,8 +933,6 @@ OpenCompositor(CrossProcessCompositorParent* aCompositor,
 /*static*/ PCompositorParent*
 CompositorParent::Create(Transport* aTransport, ProcessId aOtherProcess)
 {
-  printf_stderr("CompositorParent::Create\n");
-
   nsRefPtr<CrossProcessCompositorParent> cpcp =
     new CrossProcessCompositorParent();
   ProcessHandle handle;
@@ -1042,14 +1035,6 @@ CrossProcessCompositorParent::ShadowLayersUpdated(ShadowLayersParent* aLayerTree
                                                   bool isFirstPaint)
 {
   int64_t id = aLayerTree->GetId();
-
-
-
-  printf_stderr("[CrossProcessCompositorParent] ShadowLayersUpdated for layer tree %" PRId64 "\n", id);
-
-
-
-
   MOZ_ASSERT(id != -1);
   Layer* shadowRoot = aLayerTree->GetRoot();
   if (shadowRoot) {

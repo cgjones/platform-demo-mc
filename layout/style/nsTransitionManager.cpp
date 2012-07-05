@@ -144,6 +144,8 @@ ElementTransitions::HasTransitionOfProperty(nsCSSProperty aProperty) const
 bool
 ElementTransitions::CanPerformOnCompositorThread() const
 {
+  if (mElementProperty != nsGkAtoms::transitionsProperty)
+    return false;
   for (PRUint32 i = 0, i_end = mPropertyTransitions.Length(); i < i_end; ++i) {
     const ElementPropertyTransition &pt = mPropertyTransitions[i];
     if (pt.IsRemovedSentinel()) {
