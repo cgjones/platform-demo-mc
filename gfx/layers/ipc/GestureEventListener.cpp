@@ -32,9 +32,23 @@ nsEventStatus GestureEventListener::HandleTouchEvent(const nsTouchEvent& event)
     mTouchStartTime = event.time;
     HandlePinchEvent(event, true);
 
-  case NS_TOUCH_START_POINTER:
+  case NS_TOUCH_START_POINTER: {
     for (size_t i = 0; i < event.touchData.Length(); i++) {
-      mTouches.AppendElement(event.touchData[i]);
+      bool foundAlreadyExistingTouch = false;
+      for (size_t j = 0; j < mTouches.Length(); j++) {
+        if (mTouches[j].GetIdentifier() == event.touchData[i].GetIdentifier()) {
+          foundAlreadyExistingTouch = true;
+        }
+      }
+
+      NS_WARN_IF_FALSE(!foundAlreadyExistingTouch, "Tried to add a touch that already exists");
+
+      // If we didn't find a touch in our list that matches this, then add it.
+      // If it already existed, we don't want to add it twice because that
+      // messes with our touch move/end code.
+      if (!foundAlreadyExistingTouch)
+        mTouches.AppendElement(event.touchData[i]);
+
       char thing[256];
       sprintf(thing, "ADDED ID: %d", event.touchData[i].GetIdentifier());
       NS_ASSERTION(false, thing);
@@ -46,36 +60,42 @@ nsEventStatus GestureEventListener::HandleTouchEvent(const nsTouchEvent& event)
     }
 
     break;
-
-  case NS_TOUCH_MOVE:
+  }
+  case NS_TOUCH_MOVE: {
     // If we move at all, just bail out of the tap.
     HandleTapCancel(event);
 
-    for (size_t i = 0; i < mTouches.Length(); i++) {
-      for (size_t j = 0; j < event.touchData.Length(); j++) {
+    bool foundAlreadyExistingTouch = false;
+    for (size_t i = 0; i < mTouches.Length() && !foundAlreadyExistingTouch; i++) {
+      for (size_t j = 0; j < event.touchData.Length() && !foundAlreadyExistingTouch; j++) {
         if (mTouches[i].GetIdentifier() == event.touchData[j].GetIdentifier()) {
+          foundAlreadyExistingTouch = true;
           mTouches[i] = event.touchData[j];
-          break;
         }
       }
     }
 
+    NS_WARN_IF_FALSE(foundAlreadyExistingTouch, "Touch moved, but not in list");
+
     break;
-  case NS_TOUCH_END:
-    for (size_t i = 0; i < mTouches.Length(); i++) {
-      for (size_t j = 0; j < event.touchData.Length(); j++) {
-        if (mTouches[i].GetIdentifier() == event.touchData[j].GetIdentifier()) {
+  }
+  case NS_TOUCH_END: {
+    bool foundAlreadyExistingTouch = false;
+    for (size_t i = 0; i < event.touchData.Length() && !foundAlreadyExistingTouch; i++) {
+      for (size_t j = 0; j < mTouches.Length() && !foundAlreadyExistingTouch; j++) {
+        if (event.touchData[i].GetIdentifier() == mTouches[j].GetIdentifier()) {
+          foundAlreadyExistingTouch = true;
           char thing[256];
-          sprintf(thing, "REMOVED ID: %d / %d", event.touchData[j].GetIdentifier(), mTouches.Length());
+          sprintf(thing, "REMOVED ID: %d / %d", event.touchData[i].GetIdentifier(), mTouches.Length());
           NS_ASSERTION(false, thing);
-          mTouches.RemoveElementAt(i);
+          mTouches.RemoveElementAt(j);
           sprintf(thing, "AFTER: %d", mTouches.Length());
           NS_ASSERTION(false, thing);
-          i--;
-          break;
         }
       }
     }
+
+    NS_WARN_IF_FALSE(foundAlreadyExistingTouch, "Touch ended, but not in list");
 
     if (event.time - mTouchStartTime <= MAX_TAP_TIME) {
       // XXX: Incorrect use of the tap event. In the future, we want to send this
@@ -92,7 +112,7 @@ nsEventStatus GestureEventListener::HandleTouchEvent(const nsTouchEvent& event)
     }
 
     break;
-
+  }
   case NS_TOUCH_CANCEL:
     HandlePinchEvent(event, true);
     NS_ASSERTION(false, "CANCEL!!!!");
@@ -153,7 +173,7 @@ nsEventStatus GestureEventListener::HandlePinchEvent(const nsTouchEvent& event, 
   } else if (mState == InPinchGesture) {
     nsPinchEvent pinchEvent(true, NS_PINCH_END, nsnull);
     pinchEvent.time = event.time;
-    pinchEvent.focusPoint = event.touchData[0].GetPoint();
+    pinchEvent.focusPoint = mTouches[0].GetPoint();
     for (size_t i = 0; i < mTouches.Length(); i++) {
       char thing[256];
       sprintf(thing, "ID LEFT[%d]: %d", i, mTouches[i].GetIdentifier());
@@ -164,9 +184,9 @@ nsEventStatus GestureEventListener::HandlePinchEvent(const nsTouchEvent& event, 
       }
     }
 
-    if (uniqueTouches < mTouches.Length()) {
-      mTouches.RemoveElementsAt(uniqueTouches, mTouches.Length() - 1);
-    }
+    //if (uniqueTouches < mTouches.Length()) {
+    //  mTouches.RemoveElementsAt(uniqueTouches, mTouches.Length() - 1);
+    //}
 
     if (clearTouches) {
       mTouches.Clear();

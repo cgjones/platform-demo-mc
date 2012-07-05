@@ -302,7 +302,7 @@ nsEventStatus AsyncPanZoomController::OnScale(const nsPinchEvent& event) {
       }
     }
 
-    if (doScale || true) {
+    if (doScale) {
       ScaleWithFocus(scale * spanRatio,
                      focusPoint);
 
