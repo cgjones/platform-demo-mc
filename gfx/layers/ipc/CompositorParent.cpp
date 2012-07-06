@@ -520,7 +520,8 @@ SampleAnimations(Layer* aLayer, TimeStamp aPoint, bool* aActiveAnimation)
       break;
     case Animatable::TArrayOfTransformFunction: {
       gfx3DMatrix matrix = interpolatedValue.get_ArrayOfTransformFunction()[0].get_TransformMatrix().value();
-      shadow->SetShadowTransform(matrix);
+      gfx3DMatrix scalingMatrix = aLayer->GetScalingMatrix();
+      shadow->SetShadowTransform(scalingMatrix * matrix);
       break;
     }
     default:

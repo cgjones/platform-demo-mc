@@ -144,6 +144,7 @@ struct Animation {
 struct CommonLayerAttributes {
   nsIntRegion visibleRegion;
   TransformMatrix transform;
+  gfx3DMatrix scalingMatrix;
   PRUint32 contentFlags;
   Opacity opacity;
   bool useClipRect;

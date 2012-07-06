@@ -2428,8 +2428,10 @@ ChooseScaleAndSetTransform(FrameLayerBuilder* aLayerBuilder,
   }
 
   // Apply the inverse of our resolution-scale before the rest of our transform
-  transform = gfx3DMatrix::ScalingMatrix(1.0/scale.width, 1.0/scale.height, 1.0)*transform;
+  gfx3DMatrix scalingMatrix = gfx3DMatrix::ScalingMatrix(1.0/scale.width, 1.0/scale.height, 1.0);
+  transform = scalingMatrix * transform;
   aLayer->SetTransform(transform);
+  aLayer->SetScalingMatrix(scalingMatrix);
 
   FrameLayerBuilder::ContainerParameters
     result(scale.width, scale.height, aIncomingScale);

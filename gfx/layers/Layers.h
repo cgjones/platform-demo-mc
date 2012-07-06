@@ -745,6 +745,12 @@ public:
     Mutated();
   }
 
+  void SetScalingMatrix(const gfx3DMatrix& aMatrix)
+  {
+    mScalingMatrix = aMatrix;
+    Mutated();
+  }
+
   /**
    * CONSTRUCTION PHASE ONLY
    * A layer is "fixed position" when it draws content from a content
@@ -772,6 +778,7 @@ public:
   virtual Layer* GetFirstChild() { return nsnull; }
   virtual Layer* GetLastChild() { return nsnull; }
   const gfx3DMatrix& GetTransform() { return mTransform; }
+  const gfx3DMatrix& GetScalingMatrix() { return mScalingMatrix; }
   bool GetIsFixedPosition() { return mIsFixedPosition; }
   Layer* GetMaskLayer() { return mMaskLayer; }
   const AnimationArray& GetAnimations() { return mAnimations; }
@@ -1012,6 +1019,7 @@ protected:
   LayerUserDataSet mUserData;
   nsIntRegion mVisibleRegion;
   gfx3DMatrix mTransform;
+  gfx3DMatrix mScalingMatrix;
   gfx3DMatrix mEffectiveTransform;
   AnimationArray mAnimations;
   InfallibleTArray<AnimData> mAnimationData;
