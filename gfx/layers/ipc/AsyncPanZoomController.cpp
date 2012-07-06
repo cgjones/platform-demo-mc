@@ -651,7 +651,7 @@ void AsyncPanZoomController::GetContentTransformForFrame(const FrameMetrics& aFr
   float tempScaleDiffY = rootScaleY * localScaleY;
 
   nsIntPoint metricsScrollOffset(0, 0);
-  //if (aFrame.IsScrollable())
+  if (aFrame.IsScrollable())
     metricsScrollOffset = aFrame.mViewportScrollOffset;
 
   nsIntPoint scrollCompensation(
@@ -674,9 +674,12 @@ void AsyncPanZoomController::GetContentTransformForFrame(const FrameMetrics& aFr
 
   NS_ASSERTION(false, "@@@@@@@@@@@@@@@ GOT CONTENT TRANSFORM:");
   char thing[512];
-  sprintf(thing, "%d %d %d %d", mFrameMetrics.mViewportScrollOffset.x, mFrameMetrics.mViewportScrollOffset.y, aFrame.mViewportScrollOffset.x, aFrame.mViewportScrollOffset.y);
+  sprintf(thing, "%d %d %d %d", mFrameMetrics.mDisplayPort.x, mFrameMetrics.mDisplayPort.y, mFrameMetrics.mDisplayPort.width, mFrameMetrics.mDisplayPort.height);
   NS_ASSERTION(false, thing);
-
+  sprintf(thing, "%d %d %d %d", mFrameMetrics.mContentRect.x, mFrameMetrics.mContentRect.y, mFrameMetrics.mContentRect.width, mFrameMetrics.mContentRect.height);
+  NS_ASSERTION(false, thing);
+  sprintf(thing, "%f %f %f %f", mFrameMetrics.mCSSContentRect.x, mFrameMetrics.mCSSContentRect.y, mFrameMetrics.mCSSContentRect.width, mFrameMetrics.mCSSContentRect.height);
+  NS_ASSERTION(false, thing);
 }
 
 void AsyncPanZoomController::NotifyLayersUpdated(const FrameMetrics& aViewportFrame) {

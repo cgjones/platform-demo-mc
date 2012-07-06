@@ -553,7 +553,7 @@ CompositorParent::ApplyAsyncPanZoom(Layer* aLayer)
   gfx3DMatrix treeTransform;
   gfxPoint reverseViewTranslation;
 
-  if (!metrics.mDisplayPort.IsEmpty()) {
+  if (metrics.IsScrollable()) {
     mAsyncPanZoomController->GetContentTransformForFrame(metrics,
                                                          transform,
                                                          mWidgetSize,
@@ -562,6 +562,50 @@ CompositorParent::ApplyAsyncPanZoom(Layer* aLayer)
     ShadowLayer* shadow = aLayer->AsShadowLayer();
     shadow->SetShadowTransform(transform * treeTransform);
     TranslateFixedLayers(aLayer, reverseViewTranslation);
+  }
+}
+
+void
+CompositorParent::UpdateAsyncPanZoom(Layer* aLayer)
+{
+  ContainerLayer* container = aLayer->AsContainerLayer();
+  if (!container) {
+    return;
+  }
+
+  const FrameMetrics& metrics = container->GetFrameMetrics();
+  const gfx3DMatrix& transform = aLayer->GetTransform();
+
+  float scaleX = transform.GetXScale();
+
+  if (metrics.IsScrollable()) {
+    if (mIsFirstPaint) {
+      mContentRect = metrics.mContentRect;
+      SetFirstPaintViewport(metrics.mViewportScrollOffset,
+                            1 / scaleX,
+                            mContentRect,
+                            metrics.mCSSContentRect);
+    } else if (!metrics.mContentRect.IsEqualEdges(mContentRect)) {
+      mContentRect = metrics.mContentRect;
+      SetPageRect(metrics.mCSSContentRect);
+    }
+
+    // We synchronise the viewport information with Java after sending the above
+    // notifications, so that Java can take these into account in its response.
+    // Calculate the absolute display port to send to Java
+    nsIntRect displayPort = metrics.mDisplayPort;
+    nsIntPoint scrollOffset = metrics.mViewportScrollOffset;
+    displayPort.x += scrollOffset.x;
+    displayPort.y += scrollOffset.y;
+
+    SyncViewportInfo(displayPort, 1/scaleX, mLayersUpdated,
+                     mScrollOffset, mXScale, mYScale);
+    mLayersUpdated = false;
+  }
+
+  for (Layer* child = aLayer->GetFirstChild(); child;
+       child = child->GetNextSibling()) {
+    UpdateAsyncPanZoom(child);
   }
 }
 
@@ -577,35 +621,16 @@ CompositorParent::TransformShadowTree()
   const gfx3DMatrix& rootTransform = root->GetTransform();
   const gfx3DMatrix& currentTransform = layer->GetTransform();
 
-  float rootScaleX = rootTransform.GetXScale();
-  float rootScaleY = rootTransform.GetYScale();
-
-  if (mIsFirstPaint) {
-    mContentRect = metrics.mContentRect;
-    SetFirstPaintViewport(metrics.mViewportScrollOffset,
-                          1/rootScaleX,
-                          mContentRect,
-                          metrics.mCSSContentRect);
-    mIsFirstPaint = false;
-  } else if (!metrics.mContentRect.IsEqualEdges(mContentRect)) {
-    mContentRect = metrics.mContentRect;
-    SetPageRect(metrics.mCSSContentRect);
-  }
-
-  // We synchronise the viewport information with Java after sending the above
-  // notifications, so that Java can take these into account in its response.
-  // Calculate the absolute display port to send to Java
-  nsIntRect displayPort = metrics.mDisplayPort;
-  nsIntPoint scrollOffset = metrics.mViewportScrollOffset;
-  displayPort.x += scrollOffset.x;
-  displayPort.y += scrollOffset.y;
-
-  SyncViewportInfo(displayPort, 1/rootScaleX, mLayersUpdated,
-                   mScrollOffset, mXScale, mYScale);
-  mLayersUpdated = false;
+  if (mAsyncPanZoomController)
+    UpdateAsyncPanZoom(root);
 
   gfx3DMatrix treeTransform;
   gfxPoint reverseViewTranslation;
+
+  bool activeAnimation = false;
+  SampleAnimations(layer, mLastCompose, &activeAnimation);
+  if (activeAnimation)
+    ScheduleComposition();
 
 #ifdef MOZ_JAVA_COMPOSITOR
   if (mAsyncPanZoomController) {
@@ -663,11 +688,6 @@ CompositorParent::TransformShadowTree()
       ScheduleComposition();
     }
   }
-
-  bool activeAnimation = false;
-  SampleAnimations(layer, mLastCompose, &activeAnimation);
-  if (activeAnimation)
-    ScheduleComposition();
 }
 
 void

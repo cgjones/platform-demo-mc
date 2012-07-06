@@ -154,7 +154,8 @@ private:
   void ResumeCompositionAndResize(int width, int height);
 
   void TransformShadowTree();
-  void ApplyAsyncPanZoom(Layer* layer);
+  void UpdateAsyncPanZoom(Layer* aLayer);
+  void ApplyAsyncPanZoom(Layer* aLayer);
 
   /**
    * Add a compositor to the global compositor map.

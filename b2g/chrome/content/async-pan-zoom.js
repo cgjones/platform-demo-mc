@@ -27,6 +27,7 @@ const AsyncPanZoom = {
 
     addMessageListener("Viewport:Change", function(data) {
       let aViewport = data.json;
+      dump("####################### VIEWPORT " + JSON.stringify(aViewport));
 
       asyncPanZoom.screenWidth = aViewport.screenSize.width;
       asyncPanZoom.screenHeight = aViewport.screenSize.height;
@@ -164,11 +165,11 @@ const AsyncPanZoom = {
     // Set zoom level
     if (aForce || Math.abs(aZoom - this._zoom) >= 1e-6) {
       this._zoom = aZoom;
-      if (BrowserApp.selectedTab == this) {
+      //if (BrowserApp.selectedTab == this) {
         let cwu = window.top.QueryInterface(Ci.nsIInterfaceRequestor).getInterface(Ci.nsIDOMWindowUtils);
         this._drawZoom = aZoom;
         cwu.setResolution(aZoom, aZoom);
-      }
+      //}
     }
   },
 
