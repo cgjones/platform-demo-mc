@@ -65,9 +65,12 @@ nsEventStatus GestureEventListener::HandleTouchEvent(const nsTouchEvent& event)
     // If we move at all, just bail out of the tap.
     HandleTapCancel(event);
 
+    char thing[256];
+    sprintf(thing, "!!!!!!!!!!!!!!!!!!TOUCH MOVED: %d [%d total]", event.touchData[0].GetIdentifier(), event.touchData.Length());
+    NS_ASSERTION(false, thing);
     bool foundAlreadyExistingTouch = false;
-    for (size_t i = 0; i < mTouches.Length() && !foundAlreadyExistingTouch; i++) {
-      for (size_t j = 0; j < event.touchData.Length() && !foundAlreadyExistingTouch; j++) {
+    for (size_t i = 0; i < mTouches.Length(); i++) {
+      for (size_t j = 0; j < event.touchData.Length(); j++) {
         if (mTouches[i].GetIdentifier() == event.touchData[j].GetIdentifier()) {
           foundAlreadyExistingTouch = true;
           mTouches[i] = event.touchData[j];
