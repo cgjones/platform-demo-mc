@@ -113,7 +113,8 @@ ElementTransitions::HasStartedTransitionSinceLastTick() {
   bool transitionsStarted = false;
   for (PRUint32 i = 0; i < mPropertyTransitions.Length(); ++i) {
     ElementPropertyTransition& pt = mPropertyTransitions[i];
-    if (!pt.mHaveInvalidatedForTransitionStart && TimeStamp::Now() > pt.mStartTime) {
+    if (!pt.mHaveInvalidatedForTransitionStart && !pt.IsRemovedSentinel() &&
+        TimeStamp::Now() > pt.mStartTime) {
    printf("\n will invalidate, transition started\n");
       pt.mHaveInvalidatedForTransitionStart = true;
       transitionsStarted = true;
