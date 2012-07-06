@@ -528,14 +528,6 @@ RenderFrameParent::ShadowLayersUpdated(ShadowLayersParent* aLayerTree,
   // shadow layers, things would just break if we did --- we have no
   // way to repaint shadow layers from this process.
   nsRect rect = nsRect(nsPoint(0, 0), docFrame->GetRect().Size());
-
-
-
-
-  printf_stderr("     (invalidating frame)\n");
-
-
-
   docFrame->InvalidateWithFlags(rect, nsIFrame::INVALIDATE_NO_THEBES_LAYERS);
 }
 
@@ -545,13 +537,6 @@ RenderFrameParent::BuildLayer(nsDisplayListBuilder* aBuilder,
                               LayerManager* aManager,
                               const nsIntRect& aVisibleRect)
 {
-
-
-
-  printf_stderr("[RenderFrameParent] Building layer\n");
-
-
-
   NS_ABORT_IF_FALSE(aFrame,
                     "makes no sense to have a shadow tree without a frame");
   NS_ABORT_IF_FALSE(!mContainer ||

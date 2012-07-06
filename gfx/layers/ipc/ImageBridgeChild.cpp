@@ -187,6 +187,50 @@ private:
   ReentrantMonitor* mSync;
 };
 
+class ImageBridgeAllocSurfaceDescriptorGrallocTask : public Task
+{
+public:
+  ImageBridgeAllocSurfaceDescriptorGrallocTask(ImageBridgeChild * child,
+                                               const gfxIntSize& aSize,
+                                               const uint32_t& aFormat,
+                                               SurfaceDescriptor* result,
+                                               ReentrantMonitor* barrier)
+    : mChild(child), mSize(aSize), mFormat(aFormat), mResult(result), mSync(barrier) {}
+
+  void Run()
+  {
+    ReentrantMonitorAutoEnter autoMon(*mSync);
+    mChild->AllocSurfaceDescriptorGrallocNow(mSize, mFormat, mResult);
+    mSync->NotifyAll();
+  }
+private:
+  ImageBridgeChild * mChild;
+  gfxIntSize mSize;
+  uint32_t mFormat;
+  SurfaceDescriptor* mResult;
+  ReentrantMonitor* mSync;
+};
+
+class ImageBridgeDeallocSurfaceDescriptorGrallocTask : public Task
+{
+public:
+  ImageBridgeDeallocSurfaceDescriptorGrallocTask(ImageBridgeChild* child,
+                                                 const SurfaceDescriptor& aBuffer,
+                                                 ReentrantMonitor* barrier)
+    : mChild(child), mBuffer(aBuffer), mSync(barrier) {}
+
+  void Run()
+  {
+    ReentrantMonitorAutoEnter autoMon(*mSync);
+    mChild->DeallocSurfaceDescriptorGrallocNow(mBuffer);
+    mSync->NotifyAll();
+  }
+private:
+  ImageBridgeChild * mChild;
+  SurfaceDescriptor mBuffer;
+  ReentrantMonitor* mSync;
+};
+
 void ImageBridgeChild::ConnectNow(ImageBridgeParent* aParent)
 {
     MessageLoop * parentMsgLoop = aParent->GetMessageLoop();
@@ -230,6 +274,25 @@ ImageBridgeChild::AllocSurfaceDescriptorGralloc(const gfxIntSize& aSize,
                                                 const uint32_t& aFormat,
                                                 SurfaceDescriptor* aBuffer)
 {
+  if (InImageBridgeChildThread()) {
+    return ImageBridgeChild::AllocSurfaceDescriptorGrallocNow(aSize, aFormat, aBuffer);
+  }
+
+  ReentrantMonitor barrier("CreateSurfaceDescriptor Lock");
+  ReentrantMonitorAutoEnter autoMon(barrier);
+
+  Task* t = new ImageBridgeAllocSurfaceDescriptorGrallocTask(this, aSize, aFormat, aBuffer, &barrier);
+  GetMessageLoop()->PostTask(FROM_HERE, t);
+
+  barrier.Wait();
+  return true;
+}
+
+bool
+ImageBridgeChild::AllocSurfaceDescriptorGrallocNow(const gfxIntSize& aSize,
+                                                   const uint32_t& aFormat,
+                                                   SurfaceDescriptor* aBuffer)
+{
   MaybeMagicGrallocBufferHandle handle;
   PGrallocBufferChild* gc = SendPGrallocBufferConstructor(aSize, aFormat, &handle);
   if (handle.Tnull_t == handle.type()) {
@@ -246,6 +309,24 @@ ImageBridgeChild::AllocSurfaceDescriptorGralloc(const gfxIntSize& aSize,
 
 bool
 ImageBridgeChild::DeallocSurfaceDescriptorGralloc(const SurfaceDescriptor& aBuffer)
+{
+  if (InImageBridgeChildThread()) {
+    return ImageBridgeChild::DeallocSurfaceDescriptorGrallocNow(aBuffer);
+  }
+
+  ReentrantMonitor barrier("DeallocSurfaceDescriptor Lock");
+  ReentrantMonitorAutoEnter autoMon(barrier);
+
+  Task* t = new ImageBridgeDeallocSurfaceDescriptorGrallocTask(this, aBuffer, &barrier);
+  GetMessageLoop()->PostTask(FROM_HERE, t);
+
+  barrier.Wait();
+
+  return true;
+}
+
+bool
+ImageBridgeChild::DeallocSurfaceDescriptorGrallocNow(const SurfaceDescriptor& aBuffer)
 {
   PGrallocBufferChild* gbp =
     aBuffer.get_SurfaceDescriptorGralloc().bufferChild();

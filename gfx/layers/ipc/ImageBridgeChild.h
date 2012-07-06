@@ -22,6 +22,8 @@ class ImageBridgeParent;
 class ImageBridgeDestroyTask;
 class ImageBridgeConnectionTask;
 class ImageBridgeCreateContainerChildTask;
+class ImageBridgeAllocSurfaceDescriptorGrallocTask;
+class ImageBridgeDeallocSurfaceDescriptorGrallocTask;
 class SharedImage;
 class Image;
 
@@ -30,6 +32,8 @@ class ImageBridgeChild : public PImageBridgeChild
 friend class mozilla::layers::ImageBridgeDestroyTask;
 friend class mozilla::layers::ImageBridgeConnectionTask;
 friend class mozilla::layers::ImageBridgeCreateContainerChildTask;
+friend class mozilla::layers::ImageBridgeAllocSurfaceDescriptorGrallocTask;
+friend class mozilla::layers::ImageBridgeDeallocSurfaceDescriptorGrallocTask;
 
 public:
 
@@ -136,6 +140,14 @@ protected:
    */
   ImageContainerChild* CreateImageContainerChildNow(ImageContainer* aContainer);
   
+  bool
+  AllocSurfaceDescriptorGrallocNow(const gfxIntSize& aSize,
+                                   const uint32_t& aContent,
+                                   SurfaceDescriptor* aBuffer);
+
+  bool
+  DeallocSurfaceDescriptorGrallocNow(const SurfaceDescriptor& aBuffer);
+
 private:
   base::Thread * mThread;
 };
