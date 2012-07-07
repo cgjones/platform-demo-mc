@@ -272,11 +272,10 @@ ShadowLayerForwarder::PlatformOpenDescriptor(OpenMode aMode,
   if (OpenReadWrite == aMode) {
     usage |= GRALLOC_USAGE_SW_WRITE_OFTEN;
   }
-  void *vaddr;
-  status_t status = buffer->lock(usage, &vaddr);
-  if (status != OK) {
-    return nsnull;
-  }
+  void *vaddr = nsnull;
+  DebugOnly<status_t> status = buffer->lock(usage, &vaddr);
+  // If we fail to lock, we'll just end up aborting anyway.
+  MOZ_ASSERT(status == OK);
 
   gfxIntSize size = gfxIntSize(buffer->getWidth(), buffer->getHeight());
   gfxImageFormat format = ImageFormatForPixelFormat(buffer->getPixelFormat());

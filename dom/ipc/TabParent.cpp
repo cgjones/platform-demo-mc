@@ -98,9 +98,6 @@ TabParent::TabParent()
 
 TabParent::~TabParent()
 {
-  if (sCurrentTab == this) {
-    sCurrentTab = nsnull;
-  }
 }
 
 void
@@ -113,6 +110,10 @@ TabParent::SetOwnerElement(nsIDOMElement* aElement)
 void
 TabParent::Destroy()
 {
+  if (sCurrentTab == this) {
+    sCurrentTab = nsnull;
+  }
+
   // If this fails, it's most likely due to a content-process crash,
   // and auto-cleanup will kick in.  Otherwise, the child side will
   // destroy itself and send back __delete__().

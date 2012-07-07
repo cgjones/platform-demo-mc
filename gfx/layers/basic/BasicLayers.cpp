@@ -2534,17 +2534,21 @@ BasicShadowableThebesLayer::SyncFrontBufferToBackBuffer()
     return;
   }
 
+  gfxASurface* backBuffer = mBuffer.GetBuffer();
   if (!IsSurfaceDescriptorValid(mBackBuffer)) {
-    NS_ABORT_IF_FALSE(mROFrontBuffer.type() == OptionalThebesBuffer::TThebesBuffer,
-                      "should have a front RO buffer by now");
+    MOZ_ASSERT(!backBuffer);
+    MOZ_ASSERT(mROFrontBuffer.type() == OptionalThebesBuffer::TThebesBuffer);
     const ThebesBuffer roFront = mROFrontBuffer.get_ThebesBuffer();
     AutoOpenSurface roFrontBuffer(OpenReadOnly, roFront.buffer());
     AllocBackBuffer(roFrontBuffer.ContentType(), roFrontBuffer.Size());
   }
   mFrontAndBackBufferDiffer = false;
 
-  AutoOpenSurface autoBackBuffer(OpenReadWrite, mBackBuffer);
-  gfxASurface* backBuffer = autoBackBuffer.Get();
+  Maybe<AutoOpenSurface> autoBackBuffer;
+  if (!backBuffer) {
+    autoBackBuffer.construct(OpenReadWrite, mBackBuffer);
+    backBuffer = autoBackBuffer.ref().Get();
+  }
 
   if (OptionalThebesBuffer::Tnull_t == mROFrontBuffer.type()) {
     // We didn't get back a read-only ref to our old back buffer (the

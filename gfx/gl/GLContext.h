@@ -17,6 +17,7 @@
 #include <windows.h>
 #endif
 
+typedef void *EGLClientBuffer;
 #include "GLDefs.h"
 #include "GLLibraryLoader.h"
 #include "gfxASurface.h"
@@ -42,11 +43,11 @@ namespace mozilla {
   namespace layers {
     class LayerManagerOGL;
     class ColorTextureLayerProgram;
+    class SurfaceDescriptor;
   }
 
 namespace gl {
 class GLContext;
-
 
 enum ShaderProgramType {
     RGBALayerProgramType,
@@ -260,7 +261,7 @@ public:
     /** Can be called safely at any time. */
 
     /**
-     * If this TextureImage has a permanent gfxASurface backing,
+     * If this TextureImage has a permanent gfxASurface backing,SurfaceDescriptor
      * return it.  Otherwise return NULL.
      */
     virtual already_AddRefed<gfxASurface> GetBackingSurface()
@@ -279,6 +280,13 @@ public:
      */
     virtual void ApplyFilter() = 0;
 
+#ifdef ANDROID
+    virtual void BindGralloc(EGLClientBuffer buffer) {
+    }
+    virtual void UnbindGralloc() {
+    }
+#endif
+
 protected:
     friend class GLContext;
 
@@ -294,6 +302,7 @@ protected:
         : mSize(aSize)
         , mWrapMode(aWrapMode)
         , mContentType(aContentType)
+        , mShaderType(ShaderProgramType(-1))
         , mFilter(gfxPattern::FILTER_GOOD)
         , mFlags(aFlags)
     {}
@@ -365,6 +374,14 @@ public:
     virtual void Resize(const nsIntSize& aSize);
 
     virtual void ApplyFilter();
+
+#ifdef ANDROID
+    virtual void BindGralloc(EGLClientBuffer buffer) {
+    }
+    virtual void UnbindGralloc() {
+    }
+#endif
+
 protected:
 
     GLuint mTexture;
@@ -407,6 +424,11 @@ public:
     virtual bool InUpdate() const { return mInUpdate; };
     virtual void BindTexture(GLenum);
     virtual void ApplyFilter();
+
+#ifdef ANDROID
+    virtual void BindGralloc(EGLClientBuffer buffer);
+    virtual void UnbindGralloc();
+#endif
 
 protected:
     virtual nsIntRect GetSrcTileRect();

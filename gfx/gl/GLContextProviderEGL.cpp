@@ -1105,7 +1105,7 @@ public:
         }
 
 #ifdef MOZ_WIDGET_GONK
-        if (UsingDirectTexture()) {
+        if (UsingDirectTexture() || mEGLImage) {
             mGLContext->fActiveTexture(aTextureUnit);
             mGLContext->fBindTexture(LOCAL_GL_TEXTURE_2D, mTexture);
             sEGLLibrary.fImageTargetTexture2DOES(LOCAL_GL_TEXTURE_2D, mEGLImage);
@@ -1431,6 +1431,40 @@ public:
 #endif
         return mBackingSurface != nsnull;
     }
+
+#ifdef ANDROID
+    void BindGralloc(EGLClientBuffer buffer)
+    {
+      const int eglImageAttributes[] = { EGL_IMAGE_PRESERVED_KHR, LOCAL_EGL_TRUE,
+                                         LOCAL_EGL_NONE, LOCAL_EGL_NONE };
+
+      mEGLImage = sEGLLibrary.fCreateImage(EGL_DISPLAY(),
+                                              EGL_NO_CONTEXT,
+                                              EGL_NATIVE_BUFFER_ANDROID,
+                                              buffer,
+                                              eglImageAttributes);
+
+      if (!mEGLImage) {
+          LOG("Could not create EGL images: ERROR (0x%04x)", sEGLLibrary.fGetError());
+          return;
+      }
+    }
+
+    void UnbindGralloc() {
+      mGLContext->fActiveTexture(LOCAL_GL_TEXTURE0);
+      mGLContext->fBindTexture(LOCAL_GL_TEXTURE_2D, mTexture);
+      sEGLLibrary.fImageTargetTexture2DOES(LOCAL_GL_TEXTURE_2D, 0);
+      if (sEGLLibrary.fGetError() != LOCAL_EGL_SUCCESS) {
+          LOG("Could not unset image target texture. ERROR (0x%04x)", sEGLLibrary.fGetError());
+          return;
+      }
+
+      if (mEGLImage) {
+          sEGLLibrary.fDestroyImage(EGL_DISPLAY(), mEGLImage);
+          mEGLImage = nsnull;
+      }
+    }
+#endif
 
 protected:
     typedef gfxASurface::gfxImageFormat ImageFormat;

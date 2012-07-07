@@ -115,14 +115,10 @@ public:
   ShadowThebesLayerOGL(LayerManagerOGL *aManager);
   virtual ~ShadowThebesLayerOGL();
 
-  virtual bool ShouldDoubleBuffer();
   virtual void
   Swap(const ThebesBuffer& aNewFront, const nsIntRegion& aUpdatedRegion,
        OptionalThebesBuffer* aNewBack, nsIntRegion* aNewBackValidRegion,
        OptionalThebesBuffer* aReadOnlyFront, nsIntRegion* aFrontUpdatedRegion);
-  virtual void EnsureTextureUpdated();
-  virtual void EnsureTextureUpdated(nsIntRegion& aRegion);
-  virtual void ProgressiveUpload();
   virtual void DestroyFrontBuffer();
 
   virtual void Disconnect();
@@ -143,6 +139,7 @@ public:
 
 private:
   nsRefPtr<ShadowBufferOGL> mBuffer;
+  nsRefPtr<ShadowBufferOGL> mBackBuffer;
 
   // When doing delayed texture upload, this is the region of the buffer that
   // still requires uploading.
@@ -156,7 +153,7 @@ private:
   CancelableTask* mUploadTask;
 
   // Following used for double-buffering
-  ShadowThebesLayerBufferOGL mFrontBuffer;
+  ThebesBuffer mFrontBuffer;
   // Describes the gfxASurface we hand out to |mFrontBuffer|.
   SurfaceDescriptor mFrontBufferDescriptor;
   // When we receive an update from our remote partner, we stow away

@@ -910,8 +910,12 @@ TiledTextureImage::TiledTextureImage(GLContext* aGL,
     , mGL(aGL)
     , mTextureState(Created)
 {
+#ifdef ANDROID
+    mTileSize = mGL->GetMaxTextureSize();
+#else
     mTileSize = (!(aFlags & TextureImage::ForceSingleTile) && mGL->WantsSmallTiles())
         ? 256 : mGL->GetMaxTextureSize();
+#endif
     if (aSize != nsIntSize(0,0)) {
         Resize(aSize);
     }
@@ -1239,6 +1243,7 @@ void TiledTextureImage::Resize(const nsIntSize& aSize)
             // Create a new tile.
             nsRefPtr<TextureImage> teximg =
                     mGL->TileGenFunc(size, mContentType, mFlags);
+            mShaderType = teximg->GetShaderProgramType();
             if (replace)
                 mImages.ReplaceElementAt(i, teximg.forget());
             else
@@ -1271,6 +1276,17 @@ PRUint32 TiledTextureImage::GetTileCount()
 {
     return mImages.Length();
 }
+
+#ifdef ANDROID
+#include <ui/GraphicBuffer.h>
+
+void TiledTextureImage::BindGralloc(EGLClientBuffer buffer) {
+    mImages[0]->BindGralloc(buffer);
+}
+void TiledTextureImage::UnbindGralloc() {
+    mImages[0]->UnbindGralloc();
+}
+#endif
 
 GLContext::GLFormats
 GLContext::ChooseGLFormats(ContextFormat& aCF)
