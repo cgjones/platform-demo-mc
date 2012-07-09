@@ -2578,6 +2578,7 @@ void nsHTMLMediaElement::EndMediaStreamPlayback()
   if (container) {
     GetMediaStream()->RemoveVideoOutput(container);
   }
+  mVideoFrameContainer = nsnull;
   if (mPaused) {
     GetMediaStream()->ChangeExplicitBlockerCount(-1);
   }
