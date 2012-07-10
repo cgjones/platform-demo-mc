@@ -512,6 +512,8 @@ const nsIntRect AsyncPanZoomController::CalculateDisplayPort() {
           viewportWidth = viewport.Width(),
           viewportHeight = viewport.Height();
 
+  float scale = mFrameMetrics.mResolution.width;
+
 #ifdef USE_VELOCITY_BIASED_DISPLAYPORT
   // We want our final displayport to be much bigger than the viewport.
   PRInt32 displayPortWidth = viewportWidth * SIZE_MULTIPLIER,
@@ -590,7 +592,7 @@ const nsIntRect AsyncPanZoomController::CalculateDisplayPort() {
   }
   return nsIntRect(left, top, right - left, bottom - top);
 #else
-  return nsIntRect(viewportLeft, viewportTop, viewportWidth, viewportHeight);
+  return nsIntRect(viewportLeft * scale, viewportTop * scale, viewportWidth, viewportHeight);
 #endif
 }
 
@@ -651,7 +653,7 @@ void AsyncPanZoomController::GetContentTransformForFrame(const FrameMetrics& aFr
   float tempScaleDiffY = rootScaleY * localScaleY;
 
   nsIntPoint metricsScrollOffset(0, 0);
-  if (aFrame.IsScrollable())
+  //if (aFrame.IsScrollable())
     metricsScrollOffset = aFrame.mViewportScrollOffset;
 
   nsIntPoint scrollCompensation(

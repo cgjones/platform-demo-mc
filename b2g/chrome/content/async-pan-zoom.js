@@ -33,8 +33,10 @@ const AsyncPanZoom = {
       asyncPanZoom.screenHeight = aViewport.screenSize.height;
 
       // Transform coordinates based on zoom
-      let x = aViewport.x / aViewport.zoom;
-      let y = aViewport.y / aViewport.zoom;
+      //let x = aViewport.x / aViewport.zoom;
+      //let y = aViewport.y / aViewport.zoom;
+      let x = aViewport.x;
+      let y = aViewport.y;
 
       let win = content;
       let cwu = win.QueryInterface(Ci.nsIInterfaceRequestor).getInterface(Ci.nsIDOMWindowUtils);
@@ -175,8 +177,10 @@ const AsyncPanZoom = {
 
   setViewport: function(aViewport) {
     // Transform coordinates based on zoom
-    let x = aViewport.x / aViewport.zoom;
-    let y = aViewport.y / aViewport.zoom;
+    //let x = aViewport.x / aViewport.zoom;
+    //let y = aViewport.y / aViewport.zoom;
+    let x = aViewport.x;
+    let y = aViewport.y;
 
     // Set scroll position
     let win = content;
