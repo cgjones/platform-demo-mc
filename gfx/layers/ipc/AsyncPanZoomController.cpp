@@ -479,11 +479,14 @@ void AsyncPanZoomController::ScaleWithFocus(float aScale, const nsIntPoint& aFoc
                                    NS_lround(cssPageSize.height));
 
   // To account for focus, offset the page by the focus point scaled.
-  nsIntPoint scrollOffset = metrics.mViewportScrollOffset;
-  scrollOffset += aFocus;
+  nsIntPoint scrollOffset = metrics.mViewportScrollOffset,
+             originalOffset = scrollOffset;
+  scrollOffset.x += aFocus.x + (scaleFactor < 1 ? 1 : -1) * originalOffset.x / aScale;
+  scrollOffset.y += aFocus.y + (scaleFactor < 1 ? 1 : -1) * originalOffset.y / aScale;
   scrollOffset.x *= scaleFactor;
   scrollOffset.y *= scaleFactor;
-  scrollOffset -= aFocus;
+  scrollOffset.x -= aFocus.x + (scaleFactor < 1 ? 1 : -1) * originalOffset.x / aScale;
+  scrollOffset.y -= aFocus.y + (scaleFactor < 1 ? 1 : -1) * originalOffset.y / aScale;
   metrics.mViewportScrollOffset = scrollOffset;
 
   metrics.mResolution.width = metrics.mResolution.height = aScale;
@@ -653,7 +656,7 @@ void AsyncPanZoomController::GetContentTransformForFrame(const FrameMetrics& aFr
   float tempScaleDiffY = rootScaleY * localScaleY;
 
   nsIntPoint metricsScrollOffset(0, 0);
-  //if (aFrame.IsScrollable())
+  if (aFrame.IsScrollable())
     metricsScrollOffset = aFrame.mViewportScrollOffset;
 
   nsIntPoint scrollCompensation(
