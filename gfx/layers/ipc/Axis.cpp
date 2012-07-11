@@ -52,8 +52,8 @@ void Axis::StartTouch(PRInt32 pos) {
   mVelocity = 0.0f;
 }
 
-PRInt32 Axis::UpdateAndGetDisplacement() {
-  PRInt32 displacement = NS_lround(mVelocity);
+PRInt32 Axis::UpdateAndGetDisplacement(float scale) {
+  PRInt32 displacement = NS_lround(mVelocity / scale);
   // If this displacement will cause an overscroll, throttle it. Can potentially
   // bring it to 0 even if the velocity is high.
   if (DisplacementWillOverscroll(displacement) != OVERSCROLL_NONE) {

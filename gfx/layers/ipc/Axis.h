@@ -108,7 +108,7 @@ public:
    * apply a displacement that takes you to the boundary of the page, then call
    * it again. The result will be different in this case.
    */
-  PRInt32 UpdateAndGetDisplacement();
+  PRInt32 UpdateAndGetDisplacement(float scale);
 
   /**
    * Gets the distance between the starting position of the touch supplied in

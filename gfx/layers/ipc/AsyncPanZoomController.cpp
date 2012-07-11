@@ -241,7 +241,7 @@ nsEventStatus AsyncPanZoomController::OnScale(const nsPinchEvent& event) {
     float scale = mFrameMetrics.mResolution.width;
 
     nsIntPoint focusPoint = event.focusPoint;
-    PRInt32 xFocusChange = (mLastZoomFocus.x - focusPoint.x) * scale, yFocusChange = (mLastZoomFocus.y - focusPoint.y) * scale;
+    PRInt32 xFocusChange = (mLastZoomFocus.x - focusPoint.x) / scale, yFocusChange = (mLastZoomFocus.y - focusPoint.y) / scale;
     // If displacing by the change in focus point will take us off page bounds,
     // then reduce the displacement such that it doesn't.
     if (mX.DisplacementWillOverscroll(xFocusChange) != Axis::OVERSCROLL_NONE) {
@@ -407,8 +407,10 @@ void AsyncPanZoomController::TrackTouch(const nsTouchEvent& event) {
     mX.UpdateWithTouchAtDevicePoint(xPos, timeDelta);
     mY.UpdateWithTouchAtDevicePoint(yPos, timeDelta);
 
-    PRInt32 xDisplacement = mX.UpdateAndGetDisplacement();
-    PRInt32 yDisplacement = mY.UpdateAndGetDisplacement();
+    float scale = mFrameMetrics.mResolution.width;
+
+    PRInt32 xDisplacement = mX.UpdateAndGetDisplacement(scale);
+    PRInt32 yDisplacement = mY.UpdateAndGetDisplacement(scale);
     if (!xDisplacement && !yDisplacement) {
       return;
     }
@@ -436,9 +438,11 @@ void AsyncPanZoomController::DoFling() {
       return;
     }
 
+    float scale = mFrameMetrics.mResolution.width;
+
     ScrollBy(nsIntPoint(
-      mX.UpdateAndGetDisplacement(),
-      mY.UpdateAndGetDisplacement()
+      mX.UpdateAndGetDisplacement(scale),
+      mY.UpdateAndGetDisplacement(scale)
     ));
     ForceRepaint();
     SendViewportChange();
