@@ -554,7 +554,7 @@ CompositorParent::ApplyAsyncPanZoom(Layer* aLayer)
   gfx3DMatrix treeTransform;
   gfxPoint reverseViewTranslation;
 
-  if (metrics.IsScrollable()) {
+  if (!metrics.mDisplayPort.IsEmpty()) {
     mAsyncPanZoomController->GetContentTransformForFrame(metrics,
                                                          transform,
                                                          mWidgetSize,
@@ -579,7 +579,7 @@ CompositorParent::UpdateAsyncPanZoom(Layer* aLayer)
 
   float scaleX = transform.GetXScale();
 
-  if (metrics.IsScrollable()) {
+  if (!metrics.mDisplayPort.IsEmpty()) {
     if (mIsFirstPaint) {
       mContentRect = metrics.mContentRect;
       SetFirstPaintViewport(metrics.mViewportScrollOffset,
