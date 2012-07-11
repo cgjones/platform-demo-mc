@@ -540,8 +540,8 @@ TabChild::RecvHACK_UpdateFrame(const nsIntRect& aDisplayPort,
     nsCString data;
     // XXX: When we start removing browser.js code, we can stop doing weird
     // stringifying like this.
-    data += nsPrintfCString("{ \"x\" : %d", /*aScrollOffset.x*/ 0);
-    data += nsPrintfCString(", \"y\" : %d", /*aScrollOffset.y*/ 0);
+    data += nsPrintfCString("{ \"x\" : %d", aScrollOffset.x);
+    data += nsPrintfCString(", \"y\" : %d", aScrollOffset.y);
     // We don't treat the x and y scales any differently for this
     // semi-platform-specific code.
     data += nsPrintfCString(", \"zoom\" : %f", aResolution.width);
