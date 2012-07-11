@@ -21,7 +21,6 @@ typedef void *EGLConfig;
 typedef void *EGLContext;
 typedef void *EGLDisplay;
 typedef void *EGLSurface;
-typedef void *EGLClientBuffer;
 typedef void *EGLCastToRelevantPtr;
 typedef void *EGLImage;
 typedef void *EGLSync;

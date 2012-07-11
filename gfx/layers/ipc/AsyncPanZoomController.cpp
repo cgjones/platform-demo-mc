@@ -656,7 +656,7 @@ void AsyncPanZoomController::GetContentTransformForFrame(const FrameMetrics& aFr
   float tempScaleDiffY = rootScaleY * localScaleY;
 
   nsIntPoint metricsScrollOffset(0, 0);
-  if (aFrame.IsScrollable())
+  //if (aFrame.IsScrollable())
     metricsScrollOffset = aFrame.mViewportScrollOffset;
 
   nsIntPoint scrollCompensation(
