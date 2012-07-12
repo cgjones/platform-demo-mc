@@ -91,6 +91,16 @@ public:
    */
   void DoFling();
 
+  /**
+   * Toggles the compositing flag. This is used for B2G where content processes
+   * have been spawned but aren't actually being composited yet. This prevents
+   * us from accidentally moving stuff around even though it's not active in the
+   * layer tree.
+   *
+   * *** You must hold the monitor while calling this!
+   */
+  void SetCompositing(bool aCompositing);
+
   // --------------------------------------------------------------------------
   // These methods can be called anywhere.
   //
@@ -372,6 +382,7 @@ private:
   nsIntPoint mLastZoomFocus;
   FrameMetrics mFrameMetrics;
   bool mLayersUpdated;
+  bool mIsCompositing;
   mutable ReentrantMonitor mReentrantMonitor;
   int mDPI;
 

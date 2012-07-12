@@ -43,13 +43,14 @@ float AsyncPanZoomController::EPSILON = 0.0001;
 PRInt32 AsyncPanZoomController::REPAINT_INTERVAL = 250;
 
 AsyncPanZoomController::AsyncPanZoomController(GeckoContentController* aGeckoContentController)
-  :  mLayersUpdated(false),
-     mReentrantMonitor("asyncpanzoomcontroller"),
-     mState(NOTHING),
+  :  mState(NOTHING),
      mX(this),
      mY(this),
-     mGeckoContentController(aGeckoContentController),
-     mDPI(72)
+     mLayersUpdated(false),
+     mIsCompositing(false),
+     mReentrantMonitor("asyncpanzoomcontroller"),
+     mDPI(72),
+     mGeckoContentController(aGeckoContentController)
 {
 #if defined(MOZ_WIDGET_ANDROID)
   mDPI = AndroidBridge::Bridge()->GetDPI();
@@ -64,6 +65,9 @@ AsyncPanZoomController::~AsyncPanZoomController() {
 
 nsEventStatus AsyncPanZoomController::HandleInputEvent(const nsInputEvent& event) {
   nsEventStatus rv = nsEventStatus_eIgnore;
+  if (!mIsCompositing)
+    return rv;
+
   switch (event.message) {
   case NS_TOUCH_START_POINTER:
   case NS_TOUCH_START:
@@ -510,9 +514,10 @@ const nsIntRect AsyncPanZoomController::CalculateDisplayPort() {
   const float SIZE_MULTIPLIER = 2.0f;
   const float EPSILON = 0.00001;
 
+  float scale = mFrameMetrics.mResolution.width;
   nsIntPoint scrollOffset = mFrameMetrics.mViewportScrollOffset;
   nsIntRect viewport = mFrameMetrics.mViewport;
-  viewport.ScaleRoundIn(1 / mFrameMetrics.mResolution.width);
+  viewport.ScaleRoundIn(1 / scale);
   gfx::Rect contentRect = mFrameMetrics.mCSSContentRect;
 
   // Paint a larger portion of the screen than just what we can see. This makes
@@ -564,9 +569,9 @@ const nsIntRect AsyncPanZoomController::CalculateDisplayPort() {
   // or bottom. If they do, subtract out some height or width such that they
   // perfectly align with the end of the CSS page rect.
   if (displayPort.XMost() + scrollOffset.x > contentRect.XMost())
-    displayPort.width = contentRect.XMost() - scrollOffset.x + desiredWidth / 4;
+    displayPort.width = NS_MAX(0.0f, contentRect.XMost() - (displayPort.X() + scrollOffset.x));
   if (displayPort.YMost() + scrollOffset.y > contentRect.YMost())
-    displayPort.height = contentRect.YMost() - scrollOffset.y + desiredHeight / 4;
+    displayPort.height = NS_MAX(0.0f, contentRect.YMost() - (displayPort.Y() + scrollOffset.y));
 
   return nsIntRect(NS_lround(displayPort.X()), NS_lround(displayPort.Y()), NS_lround(displayPort.Width()), NS_lround(displayPort.Height()));
 }
@@ -673,6 +678,10 @@ void AsyncPanZoomController::SetFrameMetrics(const FrameMetrics& aFrameMetrics) 
 
 ReentrantMonitor& AsyncPanZoomController::GetReentrantMonitor() {
   return mReentrantMonitor;
+}
+
+void AsyncPanZoomController::SetCompositing(bool aCompositing) {
+  mIsCompositing = aCompositing;
 }
 
 void AsyncPanZoomController::UpdateViewport(int width, int height) {
