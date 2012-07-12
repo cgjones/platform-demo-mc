@@ -547,25 +547,26 @@ const nsIntRect AsyncPanZoomController::CalculateDisplayPort() {
   // height/width dimension.
   gfx::Rect displayPort(-desiredWidth / 4, -desiredHeight / 4, desiredWidth, desiredHeight);
 
-  // Check if the desired dimensions go over the page bounds. If any of them do,
-  // shift them back.
+  // Check if the desired boundaries go over the CSS page rect along the top or
+  // left. If they do, shift them to the right or down.
+  float oldDisplayPortX = displayPort.x, oldDisplayPortY = displayPort.y;
   if (displayPort.X() + scrollOffset.x < contentRect.X())
     displayPort.x = contentRect.X() - scrollOffset.x;
   if (displayPort.Y() + scrollOffset.y < contentRect.Y())
     displayPort.y = contentRect.Y() - scrollOffset.y;
 
-  // If the height or width is too large, try to shift towards the top or left.
-  if (displayPort.XMost() + scrollOffset.x > contentRect.XMost())
-    displayPort.x = -NS_MIN(float(scrollOffset.x), displayPort.Width() - (contentRect.XMost() - scrollOffset.x));
-  if (displayPort.YMost() + scrollOffset.y > contentRect.YMost())
-    displayPort.y = -NS_MIN(float(scrollOffset.y), displayPort.Height() - (contentRect.YMost() - scrollOffset.y));
+  // We don't need to paint the extra area that was going to overlap with the
+  // content rect. Subtract out this extra width or height.
+  displayPort.width -= displayPort.x - oldDisplayPortX;
+  displayPort.height -= displayPort.y - oldDisplayPortY;
 
-  // If the height or width is still too large, shrink it instead of shifting
-  // the start position.
+  // Check if the desired boundaries go over the CSS page rect along the right
+  // or bottom. If they do, subtract out some height or width such that they
+  // perfectly align with the end of the CSS page rect.
   if (displayPort.XMost() + scrollOffset.x > contentRect.XMost())
-    displayPort.width = contentRect.XMost() - scrollOffset.x;
+    displayPort.width = contentRect.XMost() - scrollOffset.x + desiredWidth / 4;
   if (displayPort.YMost() + scrollOffset.y > contentRect.YMost())
-    displayPort.height = contentRect.YMost() - scrollOffset.y;
+    displayPort.height = contentRect.YMost() - scrollOffset.y + desiredHeight / 4;
 
   return nsIntRect(NS_lround(displayPort.X()), NS_lround(displayPort.Y()), NS_lround(displayPort.Width()), NS_lround(displayPort.Height()));
 }
