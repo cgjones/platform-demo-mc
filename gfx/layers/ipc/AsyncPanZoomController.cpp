@@ -40,6 +40,8 @@ float AsyncPanZoomController::ZOOM_ANIMATION_FRAMES[] = {
 
 float AsyncPanZoomController::EPSILON = 0.0001;
 
+PRInt32 AsyncPanZoomController::REPAINT_INTERVAL = 250;
+
 AsyncPanZoomController::AsyncPanZoomController(GeckoContentController* aGeckoContentController)
   :  mLayersUpdated(false),
      mReentrantMonitor("asyncpanzoomcontroller"),
@@ -163,6 +165,7 @@ nsEventStatus AsyncPanZoomController::OnTouchMove(const nsTouchEvent& event) {
       if (PanDistance(event) < mPanThreshold) {
         return nsEventStatus_eConsumeNoDefault;
       }
+      mLastRepaint = event.time;
       mX.StartTouch(xPos);
       mY.StartTouch(yPos);
       OnCancelTap();
@@ -417,6 +420,11 @@ void AsyncPanZoomController::TrackTouch(const nsTouchEvent& event) {
 
     ScrollBy(nsIntPoint(xDisplacement, yDisplacement));
     ForceRepaint();
+
+    if (event.time - mLastRepaint >= REPAINT_INTERVAL) {
+      SendViewportChange();
+      mLastRepaint = event.time;
+    }
   }
 }
 
@@ -498,109 +506,68 @@ void AsyncPanZoomController::ScaleWithFocus(float aScale, const nsIntPoint& aFoc
   SetFrameMetrics(metrics);
 }
 
-// Uncomment this when it's ready to be used. If this is commented out, the
-// displayport is just the viewport. That is, exactly the area we're looking at
-// is what is rendered.
-//#define USE_VELOCITY_BIASED_DISPLAYPORT
-
 const nsIntRect AsyncPanZoomController::CalculateDisplayPort() {
   const float SIZE_MULTIPLIER = 2.0f;
-  const float VELOCITY_THRESHOLD = GetDPI() * 32.0f/1000.0f;
   const float EPSILON = 0.00001;
-  const float REVERSE_BUFFER = 0.2f;
-  const int TILE_SIZE = 256;
 
-  nsPoint velocity = GetVelocityVector();
-  nsIntRect viewport = GetAdjustedViewport();
-  PRInt32 viewportLeft = viewport.X(),
-          viewportTop = viewport.Y(),
-          viewportRight = viewport.XMost(),
-          viewportBottom = viewport.YMost(),
-          viewportWidth = viewport.Width(),
-          viewportHeight = viewport.Height();
+  nsIntPoint scrollOffset = mFrameMetrics.mViewportScrollOffset;
+  nsIntRect viewport = mFrameMetrics.mViewport;
+  viewport.ScaleRoundIn(1 / mFrameMetrics.mResolution.width);
+  gfx::Rect contentRect = mFrameMetrics.mCSSContentRect;
 
-  float scale = mFrameMetrics.mResolution.width;
+  // Paint a larger portion of the screen than just what we can see. This makes
+  // it less likely that we'll checkerboard when panning around and Gecko hasn't
+  // repainted yet.
+  float desiredWidth = viewport.width * SIZE_MULTIPLIER,
+        desiredHeight = viewport.height * SIZE_MULTIPLIER;
 
-#ifdef USE_VELOCITY_BIASED_DISPLAYPORT
-  // We want our final displayport to be much bigger than the viewport.
-  PRInt32 displayPortWidth = viewportWidth * SIZE_MULTIPLIER,
-          displayPortHeight = viewportHeight * SIZE_MULTIPLIER;
+  // The displayport is relative to the current scroll offset. Here's a little
+  // diagram to make it easier to see:
+  //
+  //       - - - -
+  //       |     |
+  //    *************
+  //    *  |     |  *
+  // - -*- @------ -*- -
+  // |  *  |=====|  *  |
+  //    *  |=====|  *
+  // |  *  |=====|  *  |
+  // - -*- ------- -*- -
+  //    *  |     |  *
+  //    *************
+  //       |     |
+  //       - - - -
+  //
+  // The full --- area with === inside it is the actual viewport rect, the *** area
+  // is the displayport, and the - - - area is an imaginary additional page on all 4
+  // borders of the actual page. Notice that the displayport intersects half-way with
+  // each of the imaginary extra pages. The @ symbol at the top left of the
+  // viewport marks the current scroll offset. From the @ symbol to the far left
+  // and far top, it is clear that this distance is 1/4 of the displayport's
+  // height/width dimension.
+  gfx::Rect displayPort(-desiredWidth / 4, -desiredHeight / 4, desiredWidth, desiredHeight);
 
-  if (fabsf(velocity.x) > VELOCITY_THRESHOLD && fabsf(velocity.y) < EPSILON) {
-    displayPortHeight = viewportHeight;
-  } else if (fabsf(velocity.y) > VELOCITY_THRESHOLD && fabsf(velocity.x) < EPSILON) {
-    displayPortWidth = viewportWidth;
-  }
+  // Check if the desired dimensions go over the page bounds. If any of them do,
+  // shift them back.
+  if (displayPort.X() + scrollOffset.x < contentRect.X())
+    displayPort.x = contentRect.X() - scrollOffset.x;
+  if (displayPort.Y() + scrollOffset.y < contentRect.Y())
+    displayPort.y = contentRect.Y() - scrollOffset.y;
 
-  if (displayPortWidth > mFrameMetrics.mContentRect.Width()) {
-    displayPortWidth = mFrameMetrics.mContentRect.Width();
-  }
-  if (displayPortHeight > mFrameMetrics.mContentRect.Height()) {
-    displayPortHeight = mFrameMetrics.mContentRect.Height();
-  }
+  // If the height or width is too large, try to shift towards the top or left.
+  if (displayPort.XMost() + scrollOffset.x > contentRect.XMost())
+    displayPort.x = -NS_MIN(float(scrollOffset.x), displayPort.Width() - (contentRect.XMost() - scrollOffset.x));
+  if (displayPort.YMost() + scrollOffset.y > contentRect.YMost())
+    displayPort.y = -NS_MIN(float(scrollOffset.y), displayPort.Height() - (contentRect.YMost() - scrollOffset.y));
 
-  PRInt32 horizontalBuffer = displayPortWidth - mFrameMetrics.mContentRect.Width(),
-          verticalBuffer = displayPortHeight - mFrameMetrics.mContentRect.Height();
+  // If the height or width is still too large, shrink it instead of shifting
+  // the start position.
+  if (displayPort.XMost() + scrollOffset.x > contentRect.XMost())
+    displayPort.width = contentRect.XMost() - scrollOffset.x;
+  if (displayPort.YMost() + scrollOffset.y > contentRect.YMost())
+    displayPort.height = contentRect.YMost() - scrollOffset.y;
 
-  float marginsLeft, marginsTop, marginsRight, marginsBottom;
-  if (velocity.x > VELOCITY_THRESHOLD) {
-    marginsLeft = horizontalBuffer * REVERSE_BUFFER;
-  } else if (velocity.x < -VELOCITY_THRESHOLD) {
-    marginsLeft = horizontalBuffer * (1.0f - REVERSE_BUFFER);
-  } else {
-    marginsLeft = horizontalBuffer / 2.0f;
-  }
-  marginsRight = horizontalBuffer - marginsLeft;
-
-  if (velocity.y > VELOCITY_THRESHOLD) {
-    marginsTop = verticalBuffer * REVERSE_BUFFER;
-  } else if (velocity.y < -VELOCITY_THRESHOLD) {
-    marginsTop = verticalBuffer * (1.0f - REVERSE_BUFFER);
-  } else {
-    marginsTop = verticalBuffer / 2.0f;
-  }
-  marginsBottom = verticalBuffer - marginsTop;
-
-  PRInt32 leftOverflow = mFrameMetrics.mContentRect.X() - (viewportLeft - marginsLeft),
-          rightOverflow = (viewportRight + marginsRight) - mFrameMetrics.mContentRect.XMost(),
-          topOverflow = mFrameMetrics.mContentRect.Y() - (viewportTop - marginsTop),
-          bottomOverflow = (viewportBottom + marginsBottom) - mFrameMetrics.mContentRect.YMost();
-
-  if (leftOverflow > 0) {
-    marginsLeft -= leftOverflow;
-    marginsRight += leftOverflow;
-  } else if (rightOverflow > 0) {
-    marginsRight -= rightOverflow;
-    marginsLeft += rightOverflow;
-  }
-  if (topOverflow > 0) {
-    marginsTop -= topOverflow;
-    marginsBottom += topOverflow;
-  } else if (bottomOverflow > 0) {
-    marginsBottom -= bottomOverflow;
-    marginsTop += bottomOverflow;
-  }
-
-  PRInt32 left = viewportLeft - marginsLeft,
-          top = viewportTop - marginsTop,
-          right = viewportRight - marginsRight,
-          bottom = viewportBottom - marginsBottom;
-  if (left < mFrameMetrics.mContentRect.X()) {
-    left = mFrameMetrics.mContentRect.X();
-  }
-  if (top < mFrameMetrics.mContentRect.Y()) {
-    top = mFrameMetrics.mContentRect.Y();
-  }
-  if (right < mFrameMetrics.mContentRect.XMost()) {
-    right = mFrameMetrics.mContentRect.XMost();
-  }
-  if (bottom < mFrameMetrics.mContentRect.YMost()) {
-    bottom = mFrameMetrics.mContentRect.YMost();
-  }
-  return nsIntRect(left, top, right - left, bottom - top);
-#else
-  return nsIntRect(/*viewportLeft * scale*/ 0, /*viewportTop * scale*/ 0, viewportWidth, viewportHeight);
-#endif
+  return nsIntRect(NS_lround(displayPort.X()), NS_lround(displayPort.Y()), NS_lround(displayPort.Width()), NS_lround(displayPort.Height()));
 }
 
 int AsyncPanZoomController::GetDPI() {
@@ -701,13 +668,6 @@ const FrameMetrics& AsyncPanZoomController::GetFrameMetrics() {
 
 void AsyncPanZoomController::SetFrameMetrics(const FrameMetrics& aFrameMetrics) {
   mFrameMetrics = aFrameMetrics;
-}
-
-const nsIntRect AsyncPanZoomController::GetAdjustedViewport() {
-  return nsIntRect(mFrameMetrics.mViewportScrollOffset.x,
-                   mFrameMetrics.mViewportScrollOffset.y,
-                   mFrameMetrics.mViewport.width,
-                   mFrameMetrics.mViewport.height);
 }
 
 ReentrantMonitor& AsyncPanZoomController::GetReentrantMonitor() {

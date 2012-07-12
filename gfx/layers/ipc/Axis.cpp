@@ -189,7 +189,7 @@ PRInt32 AxisX::GetOrigin() {
 }
 
 PRInt32 AxisX::GetViewportLength() {
-  nsIntRect viewport = mAsyncPanZoomController->GetAdjustedViewport();
+  nsIntRect viewport = mAsyncPanZoomController->GetFrameMetrics().mViewport;
   return viewport.width;
 }
 
@@ -231,7 +231,7 @@ PRInt32 AxisY::GetOrigin() {
 }
 
 PRInt32 AxisY::GetViewportLength() {
-  nsIntRect viewport = mAsyncPanZoomController->GetAdjustedViewport();
+  nsIntRect viewport = mAsyncPanZoomController->GetFrameMetrics().mViewport;
   return viewport.height;
 }
 

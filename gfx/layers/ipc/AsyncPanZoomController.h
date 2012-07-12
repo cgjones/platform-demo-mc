@@ -129,14 +129,6 @@ public:
   void SetFrameMetrics(const FrameMetrics& aFrameMetrics);
 
   /**
-   * Utility function that simply gets the viewport from the GetFrameMetrics()
-   * call and adds the scroll offset to it.
-   *
-   * *** You must hold the monitor while calling this!
-   */
-  const nsIntRect GetAdjustedViewport();
-
-  /**
    * Converts a point from layer view coordinates to layer coordinates. In other
    * words, given a point measured in pixels from the top left corner of the
    * layer view, returns the point in pixels measured from the last scroll.
@@ -172,6 +164,12 @@ protected:
    * Epsilon helper for float precision.
    */
   static float EPSILON;
+
+  /**
+   * Maximum amount of time while panning before sending a viewport change. This
+   * will asynchronously repaint the page. It is also forced when panning stops.
+   */
+  static PRInt32 REPAINT_INTERVAL;
 
   /**
    * General handler for touch events.
@@ -370,6 +368,7 @@ private:
   AxisX mX;
   AxisY mY;
   PRInt32 mLastEventTime;
+  PRInt32 mLastRepaint;
   nsIntPoint mLastZoomFocus;
   FrameMetrics mFrameMetrics;
   bool mLayersUpdated;

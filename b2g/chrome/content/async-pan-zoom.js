@@ -244,17 +244,17 @@ const AsyncPanZoom = {
     // displayport somewhat to make sure it gets through all the conversions gecko will do on it
     // without deforming too much. See https://bugzilla.mozilla.org/show_bug.cgi?id=737510#c10
     // for details on what these operations are.
-    let geckoScrollX = content.scrollX;
-    let geckoScrollY = content.scrollY;
-    aDisplayPort = this._dirtiestHackEverToWorkAroundGeckoRounding(aDisplayPort, geckoScrollX, geckoScrollY);
+    //let geckoScrollX = content.scrollX;
+    //let geckoScrollY = content.scrollY;
+    //aDisplayPort = this._dirtiestHackEverToWorkAroundGeckoRounding(aDisplayPort, geckoScrollX, geckoScrollY);
 
     cwu = content.QueryInterface(Ci.nsIInterfaceRequestor).getInterface(Ci.nsIDOMWindowUtils);
-    /*cwu.setDisplayPortForElement((aDisplayPort.left / resolution) - geckoScrollX,
-                                 (aDisplayPort.top / resolution) - geckoScrollY,
-                                 (aDisplayPort.right - aDisplayPort.left) / resolution,
-                                 (aDisplayPort.bottom - aDisplayPort.top) / resolution,
-                                 element);*/
-    cwu.setDisplayPortForElement(0, 0, (aDisplayPort.right - aDisplayPort.left) / resolution, (aDisplayPort.bottom - aDisplayPort.top) / resolution, element);
+  //cwu.setDisplayPortForElement((aDisplayPort.left / resolution) /*- geckoScrollX*/,
+  //                             (aDisplayPort.top / resolution) /*- geckoScrollY*/,
+  //                             (aDisplayPort.right - aDisplayPort.left) / resolution,
+  //                             (aDisplayPort.bottom - aDisplayPort.top) / resolution,
+  //                             element);
+    cwu.setDisplayPortForElement(aDisplayPort.left, aDisplayPort.top, aDisplayPort.width, aDisplayPort.height, element);
   },
 
   /*

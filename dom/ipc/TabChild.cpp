@@ -548,8 +548,8 @@ TabChild::RecvHACK_UpdateFrame(const nsIntRect& aDisplayPort,
     data += nsPrintfCString(", \"displayPort\" : ");
         data += nsPrintfCString("{ \"left\" : %d", aDisplayPort.X());
         data += nsPrintfCString(", \"top\" : %d", aDisplayPort.Y());
-        data += nsPrintfCString(", \"right\" : %d", aDisplayPort.XMost());
-        data += nsPrintfCString(", \"bottom\" : %d", aDisplayPort.YMost());
+        data += nsPrintfCString(", \"width\" : %d", aDisplayPort.Width());
+        data += nsPrintfCString(", \"height\" : %d", aDisplayPort.Height());
         data += nsPrintfCString(", \"resolution\" : %f", aResolution.width);
         data += nsPrintfCString(" }");
     data += nsPrintfCString(", \"screenSize\" : ");
