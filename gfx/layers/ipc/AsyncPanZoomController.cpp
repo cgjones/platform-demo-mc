@@ -238,8 +238,6 @@ nsEventStatus AsyncPanZoomController::OnScale(const nsPinchEvent& event) {
     return nsEventStatus_eConsumeNoDefault;
   }
 
-  NS_ASSERTION(false, "SCALE!!!!!!!!");
-
   float spanRatio = event.currentSpan / event.previousSpan;
 
   {
@@ -584,7 +582,7 @@ const nsIntPoint AsyncPanZoomController::ConvertViewPointToLayerPoint(const nsIn
   float scale = mFrameMetrics.mResolution.width;
   nsIntPoint offset = mFrameMetrics.mViewportScrollOffset;
   nsIntRect displayPort = mFrameMetrics.mDisplayPort;
-  return nsIntPoint(offset.x + viewPoint.x / scale - displayPort.x, offset.y + viewPoint.y / scale - displayPort.y);
+  return nsIntPoint(offset.x + viewPoint.x / scale, offset.y + viewPoint.y / scale);
 }
 
 bool AsyncPanZoomController::GetLayersUpdated() {
@@ -633,7 +631,7 @@ void AsyncPanZoomController::GetContentTransformForFrame(const FrameMetrics& aFr
   float tempScaleDiffY = rootScaleY * localScaleY;
 
   nsIntPoint metricsScrollOffset(0, 0);
-  //if (aFrame.IsScrollable())
+  if (aFrame.IsScrollable())
     metricsScrollOffset = aFrame.mViewportScrollOffset;
 
   nsIntPoint scrollCompensation(
@@ -653,15 +651,6 @@ void AsyncPanZoomController::GetContentTransformForFrame(const FrameMetrics& aFr
                     NS_MIN(offsetY, (float)(localContentRect.YMost() - aWidgetSize.height)));
   *aReverseViewTranslation = gfxPoint(offsetX - metricsScrollOffset.x,
                                       offsetY - metricsScrollOffset.y);
-
-  NS_ASSERTION(false, "@@@@@@@@@@@@@@@ GOT CONTENT TRANSFORM:");
-  char thing[512];
-  sprintf(thing, "%d %d %d %d", mFrameMetrics.mDisplayPort.x, mFrameMetrics.mDisplayPort.y, mFrameMetrics.mDisplayPort.width, mFrameMetrics.mDisplayPort.height);
-  NS_ASSERTION(false, thing);
-  sprintf(thing, "%d %d %d %d", mFrameMetrics.mContentRect.x, mFrameMetrics.mContentRect.y, mFrameMetrics.mContentRect.width, mFrameMetrics.mContentRect.height);
-  NS_ASSERTION(false, thing);
-  sprintf(thing, "%f %f %f %f", mFrameMetrics.mCSSContentRect.x, mFrameMetrics.mCSSContentRect.y, mFrameMetrics.mCSSContentRect.width, mFrameMetrics.mCSSContentRect.height);
-  NS_ASSERTION(false, thing);
 }
 
 void AsyncPanZoomController::NotifyLayersUpdated(const FrameMetrics& aViewportFrame) {

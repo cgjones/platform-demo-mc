@@ -48,10 +48,6 @@ nsEventStatus GestureEventListener::HandleTouchEvent(const nsTouchEvent& event)
       // messes with our touch move/end code.
       if (!foundAlreadyExistingTouch)
         mTouches.AppendElement(event.touchData[i]);
-
-      char thing[256];
-      sprintf(thing, "ADDED ID: %d", event.touchData[i].GetIdentifier());
-      NS_ASSERTION(false, thing);
     }
 
     if (mTouches.Length() == 2) {
@@ -65,9 +61,6 @@ nsEventStatus GestureEventListener::HandleTouchEvent(const nsTouchEvent& event)
     // If we move at all, just bail out of the tap.
     HandleTapCancel(event);
 
-    char thing[256];
-    sprintf(thing, "!!!!!!!!!!!!!!!!!!TOUCH MOVED: %d [%d total]", event.touchData[0].GetIdentifier(), event.touchData.Length());
-    NS_ASSERTION(false, thing);
     bool foundAlreadyExistingTouch = false;
     for (size_t i = 0; i < mTouches.Length(); i++) {
       for (size_t j = 0; j < event.touchData.Length(); j++) {
@@ -88,12 +81,7 @@ nsEventStatus GestureEventListener::HandleTouchEvent(const nsTouchEvent& event)
       for (size_t j = 0; j < mTouches.Length() && !foundAlreadyExistingTouch; j++) {
         if (event.touchData[i].GetIdentifier() == mTouches[j].GetIdentifier()) {
           foundAlreadyExistingTouch = true;
-          char thing[256];
-          sprintf(thing, "REMOVED ID: %d / %d", event.touchData[i].GetIdentifier(), mTouches.Length());
-          NS_ASSERTION(false, thing);
           mTouches.RemoveElementAt(j);
-          sprintf(thing, "AFTER: %d", mTouches.Length());
-          NS_ASSERTION(false, thing);
         }
       }
     }
@@ -118,7 +106,6 @@ nsEventStatus GestureEventListener::HandleTouchEvent(const nsTouchEvent& event)
   }
   case NS_TOUCH_CANCEL:
     HandlePinchEvent(event, true);
-    NS_ASSERTION(false, "CANCEL!!!!");
     break;
 
   }
@@ -131,15 +118,7 @@ nsEventStatus GestureEventListener::HandleTouchEvent(const nsTouchEvent& event)
 
 nsEventStatus GestureEventListener::HandlePinchEvent(const nsTouchEvent& event, bool clearTouches)
 {
-  size_t uniqueTouches = 0;
-  for (size_t i = 0; i < mTouches.Length(); i++) {
-    if (mTouches[i].GetIdentifier() != mTouches[0].GetIdentifier()) {
-      uniqueTouches++;
-    }
-  }
-
-  if (/*uniqueTouches > 1*/ mTouches.Length() > 1 && !clearTouches) {
-    NS_ASSERTION(false, "((((((((((((((((((((((((((MULTIPLE TOUCHES");
+  if (mTouches.Length() > 1 && !clearTouches) {
     SingleTouchData &firstTouch = mTouches[0],
                     &secondTouch = mTouches[mTouches.Length() - 1];
     nsIntPoint focusPoint =
@@ -162,7 +141,6 @@ nsEventStatus GestureEventListener::HandlePinchEvent(const nsTouchEvent& event, 
 
       mState = InPinchGesture;
     } else {
-      NS_ASSERTION(false, "((((((((((((((((((((((((SENDING SCALE");
       nsPinchEvent pinchEvent(true, NS_PINCH_SCALE, nsnull);
       pinchEvent.time = event.time;
       pinchEvent.focusPoint = focusPoint;
@@ -178,18 +156,11 @@ nsEventStatus GestureEventListener::HandlePinchEvent(const nsTouchEvent& event, 
     pinchEvent.time = event.time;
     pinchEvent.focusPoint = mTouches[0].GetPoint();
     for (size_t i = 0; i < mTouches.Length(); i++) {
-      char thing[256];
-      sprintf(thing, "ID LEFT[%d]: %d", i, mTouches[i].GetIdentifier());
-      NS_ASSERTION(false, thing);
       if (mTouches[i].GetIdentifier() != event.touchData[0].GetIdentifier()) {
         pinchEvent.focusPoint = mTouches[i].GetPoint();
         break;
       }
     }
-
-    //if (uniqueTouches < mTouches.Length()) {
-    //  mTouches.RemoveElementsAt(uniqueTouches, mTouches.Length() - 1);
-    //}
 
     if (clearTouches) {
       mTouches.Clear();

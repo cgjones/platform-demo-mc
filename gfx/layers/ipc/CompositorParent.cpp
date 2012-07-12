@@ -573,6 +573,11 @@ CompositorParent::ApplyAsyncPanZoom(Layer* aLayer)
 void
 CompositorParent::UpdateAsyncPanZoom(Layer* aLayer)
 {
+  for (Layer* child = aLayer->GetFirstChild(); child;
+       child = child->GetNextSibling()) {
+    UpdateAsyncPanZoom(child);
+  }
+
   ContainerLayer* container = aLayer->AsContainerLayer();
   if (!container) {
     return;
@@ -595,9 +600,6 @@ CompositorParent::UpdateAsyncPanZoom(Layer* aLayer)
       SetPageRect(metrics.mCSSContentRect);
     }
 
-    // We synchronise the viewport information with Java after sending the above
-    // notifications, so that Java can take these into account in its response.
-    // Calculate the absolute display port to send to Java
     nsIntRect displayPort = metrics.mDisplayPort;
     nsIntPoint scrollOffset = metrics.mViewportScrollOffset;
     displayPort.x += scrollOffset.x;
@@ -606,11 +608,6 @@ CompositorParent::UpdateAsyncPanZoom(Layer* aLayer)
     SyncViewportInfo(displayPort, 1/scaleX, mLayersUpdated,
                      mScrollOffset, mXScale, mYScale);
     mLayersUpdated = false;
-  }
-
-  for (Layer* child = aLayer->GetFirstChild(); child;
-       child = child->GetNextSibling()) {
-    UpdateAsyncPanZoom(child);
   }
 }
 
@@ -675,7 +672,9 @@ CompositorParent::TransformShadowTree()
     // If there's a fling animation happening, advance it by 1 frame.
     mAsyncPanZoomController->DoFling();
 
+    // Apply transforms for panning and zooming.
     bool foundScrollableFrame = ApplyAsyncPanZoom(root);
+
     // Inform the AsyncPanZoomController about whether or not we're compositing
     // a scrollable frame.
     mAsyncPanZoomController->SetCompositing(foundScrollableFrame);
