@@ -25,8 +25,8 @@ void GeckoContentController::SendViewportChange(const FrameMetrics& aFrameMetric
   data += nsPrintfCString(", \"displayPort\" : ");
     data += nsPrintfCString("{ \"left\" : %d", aFrameMetrics.mDisplayPort.X());
     data += nsPrintfCString(", \"top\" : %d", aFrameMetrics.mDisplayPort.Y());
-    data += nsPrintfCString(", \"width\" : %d", aFrameMetrics.mDisplayPort.Width());
-    data += nsPrintfCString(", \"height\" : %d", aFrameMetrics.mDisplayPort.Height());
+    data += nsPrintfCString(", \"right\" : %d", aFrameMetrics.mDisplayPort.XMost());
+    data += nsPrintfCString(", \"bottom\" : %d", aFrameMetrics.mDisplayPort.YMost());
     data += nsPrintfCString(", \"resolution\" : %f", aFrameMetrics.mResolution.width);
     data += nsPrintfCString(" }");
   data += nsPrintfCString(", \"screenSize\" :");
