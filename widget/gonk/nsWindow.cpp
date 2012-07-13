@@ -289,7 +289,8 @@ nsWindow::DispatchInputEvent(nsGUIEvent &aEvent)
         case NS_TOUCH_MOVE:
         case NS_TOUCH_END:
         case NS_TOUCH_CANCEL:
-            mGestureEventListener->HandleTouchEvent((const nsTouchEvent&)(aEvent));
+            mGestureEventListener->HandleTouchEvent(
+                MultiTouchEvent((const nsTouchEvent&) aEvent));
             break;
         }
     }
@@ -507,7 +508,8 @@ nsWindow::DispatchEvent(nsGUIEvent *aEvent, nsEventStatus &aStatus)
         case NS_TOUCH_MOVE:
         case NS_TOUCH_END:
         case NS_TOUCH_CANCEL:
-            aStatus = mGestureEventListener->HandleTouchEvent((const nsTouchEvent&)(*aEvent));
+            aStatus = mGestureEventListener->HandleTouchEvent(
+                MultiTouchEvent((const nsTouchEvent&)(*aEvent)));
             break;
         }
     }

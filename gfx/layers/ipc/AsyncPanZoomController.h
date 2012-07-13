@@ -10,7 +10,7 @@
 #include "GeckoContentController.h"
 #include "mozilla/ReentrantMonitor.h"
 #include "mozilla/RefPtr.h"
-#include "nsGUIEvent.h"
+#include "InputEvent.h"
 #include "Axis.h"
 #include "CompositeEvent.h"
 
@@ -51,7 +51,7 @@ public:
    * General handler for any input event. Calls another Handle*Event based on
    * the type of input.
    */
-  nsEventStatus HandleInputEvent(const nsInputEvent& event);
+  nsEventStatus HandleInputEvent(const InputEvent& event);
 
   /**
    * Updates the viewport.
@@ -185,87 +185,87 @@ protected:
    * General handler for touch events.
    * Calls the onTouch* handlers based on the type of input.
    */
-  nsEventStatus HandleTouchEvent(const nsTouchEvent& event);
+  nsEventStatus HandleTouchEvent(const MultiTouchEvent& event);
 
   /**
    * General handler for pinch events.
    * Calls the onScale* handlers based on the type of input.
    */
-  nsEventStatus HandleSimpleScaleGestureEvent(const nsPinchEvent& event);
+  nsEventStatus HandleSimpleScaleGestureEvent(const PinchEvent& event);
 
   /**
    * General handler for tap events.
    * Calls the on*Tap/on*Press handlers based on the type of input.
    */
-  nsEventStatus HandleTapGestureEvent(const nsTapEvent& event);
+  nsEventStatus HandleTapGestureEvent(const TapEvent& event);
 
   /**
    * Helper method for touches beginning. Sets everything up for panning and any
    * multitouch gestures.
    */
-  nsEventStatus OnTouchStart(const nsTouchEvent& event);
+  nsEventStatus OnTouchStart(const MultiTouchEvent& event);
 
   /**
    * Helper method for touches moving. Does any transforms needed when panning.
    */
-  nsEventStatus OnTouchMove(const nsTouchEvent& event);
+  nsEventStatus OnTouchMove(const MultiTouchEvent& event);
 
   /**
    * Helper method for touches ending. Redraws the screen if necessary and does
    * any cleanup after a touch has ended.
    */
-  nsEventStatus OnTouchEnd(const nsTouchEvent& event);
+  nsEventStatus OnTouchEnd(const MultiTouchEvent& event);
 
   /**
    * Helper method for touches being cancelled. Treated roughly the same as a
    * touch ending (onTouchEnd()).
    */
-  nsEventStatus OnTouchCancel(const nsTouchEvent& event);
+  nsEventStatus OnTouchCancel(const MultiTouchEvent& event);
 
   /**
    * Helper method for scales beginning. Distinct from the onTouch* handlers in
    * that this implies some outside implementation has determined that the user
    * is pinching. On Android, this is the SimpleScaleGestureDetector.
    */
-  nsEventStatus OnScaleBegin(const nsPinchEvent& event);
+  nsEventStatus OnScaleBegin(const PinchEvent& event);
 
   /**
    * Helper method for scaling. As the user moves their fingers when pinching,
    * this changes the scale of the page.
    */
-  nsEventStatus OnScale(const nsPinchEvent& event);
+  nsEventStatus OnScale(const PinchEvent& event);
 
   /**
    * Helper method for scales ending. Redraws the screen if necessary and does
    * any cleanup after a scale has ended.
    */
-  nsEventStatus OnScaleEnd(const nsPinchEvent& event);
+  nsEventStatus OnScaleEnd(const PinchEvent& event);
 
   /**
    * Helper method for long press gestures. Sends a notification to browser.js
    * if the press is valid.
    */
-  nsEventStatus OnLongPress(const nsTapEvent& event);
+  nsEventStatus OnLongPress(const TapEvent& event);
 
   /**
    * Helper method for single tap gestures. Gets called before an
    * onSingleTapConfirmed() call. Sends a notification to browser.js if the
    * tap is valid.
    */
-  nsEventStatus OnSingleTapUp(const nsTapEvent& event);
+  nsEventStatus OnSingleTapUp(const TapEvent& event);
 
   /**
    * Helper method for a single tap confirmed. Gets sent if a double tap doesn't
    * happen after a single tap within some outside implementation's timeout.
    * Sends a notification to browser.js if the tap is valid.
    */
-  nsEventStatus OnSingleTapConfirmed(const nsTapEvent& event);
+  nsEventStatus OnSingleTapConfirmed(const TapEvent& event);
 
   /**
    * Helper method for double taps. Sends a notification to browser.js if the
    * tap is valid.
    */
-  nsEventStatus OnDoubleTap(const nsTapEvent& event);
+  nsEventStatus OnDoubleTap(const TapEvent& event);
 
   /**
    * Cancels any touch gesture currently going to Gecko. Used primarily when a
@@ -313,7 +313,7 @@ protected:
    * began. That is, it is the distance between the current position and the
    * initial position of this touch.
    */
-  float PanDistance(const nsTouchEvent& event);
+  float PanDistance(const MultiTouchEvent& event);
 
   /**
    * Gets a vector of the velocities of each axis.
@@ -325,12 +325,12 @@ protected:
    * There is an array of these on every nsTouchEvent that is used off-main-thread.
    * This gets only the first one and assumes the rest are either missing or not relevant.
    */
-  SingleTouchData& GetTouchFromEvent(const nsTouchEvent& event);
+  SingleTouchData& GetTouchFromEvent(const MultiTouchEvent& event);
 
   /**
    * Does any panning required due to a new touch event.
    */
-  void TrackTouch(const nsTouchEvent& event);
+  void TrackTouch(const MultiTouchEvent& event);
 
   /**
    * Recalculates the displayport. Ideally, this should paint an area bigger

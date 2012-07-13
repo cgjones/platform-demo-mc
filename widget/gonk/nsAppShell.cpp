@@ -137,20 +137,6 @@ addDOMTouch(UserInputData& data, nsTouchEvent& event, int i)
     );
 }
 
-static void
-addSingleTouch(UserInputData& data, nsTouchEvent& event, int i)
-{
-    const Touch& touch = data.motion.touches[i];
-    event.touchData.AppendElement(
-        SingleTouchData(touch.id,
-                        nsIntPoint(touch.coords.getX(), touch.coords.getY()),
-                        nsIntPoint(touch.coords.getAxisValue(AMOTION_EVENT_AXIS_SIZE),
-                                   touch.coords.getAxisValue(AMOTION_EVENT_AXIS_SIZE)),
-                        0,
-                        touch.coords.getAxisValue(AMOTION_EVENT_AXIS_PRESSURE))
-    );
-}
-
 static nsEventStatus
 sendTouchEvent(UserInputData& data)
 {
@@ -183,11 +169,9 @@ sendTouchEvent(UserInputData& data)
         i = data.action & AMOTION_EVENT_ACTION_POINTER_INDEX_MASK;
         i >>= AMOTION_EVENT_ACTION_POINTER_INDEX_SHIFT;
         addDOMTouch(data, event, i);
-        addSingleTouch(data, event, i);
     } else {
         for (i = 0; i < data.motion.touchCount; ++i) {
             addDOMTouch(data, event, i);
-            addSingleTouch(data, event, i);
         }
     }
 
