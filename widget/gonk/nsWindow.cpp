@@ -289,7 +289,8 @@ nsWindow::DispatchInputEvent(nsGUIEvent &aEvent)
         case NS_TOUCH_MOVE:
         case NS_TOUCH_END:
         case NS_TOUCH_CANCEL:
-            mGestureEventListener->HandleTouchEvent((const nsTouchEvent&)(aEvent));
+            mGestureEventListener->HandleTouchEvent(
+                MultiTouchEvent((const nsTouchEvent&) aEvent));
             break;
         }
     }
@@ -418,7 +419,7 @@ nsWindow::Resize(PRInt32 aX,
         gWindowToRedraw->Invalidate(sVirtualBounds);
 
     if (mGestureEventListener)
-        mGestureEventListener->GetAsyncPanZoomController()->UpdateViewport(aWidth, aHeight);
+        mGestureEventListener->GetAsyncPanZoomController()->UpdateViewportSize(aWidth, aHeight);
 
     return NS_OK;
 }
@@ -507,7 +508,8 @@ nsWindow::DispatchEvent(nsGUIEvent *aEvent, nsEventStatus &aStatus)
         case NS_TOUCH_MOVE:
         case NS_TOUCH_END:
         case NS_TOUCH_CANCEL:
-            aStatus = mGestureEventListener->HandleTouchEvent((const nsTouchEvent&)(*aEvent));
+            aStatus = mGestureEventListener->HandleTouchEvent(
+                MultiTouchEvent((const nsTouchEvent&)(*aEvent)));
             break;
         }
     }
@@ -575,7 +577,8 @@ nsWindow::GetLayerManager(PLayersChild* aShadowManager,
         nsRefPtr<AsyncPanZoomController> asyncPanZoomController =
             new AsyncPanZoomController(new CrossProcessContentController());
         mGestureEventListener = new GestureEventListener(asyncPanZoomController.get());
-        mGestureEventListener->GetAsyncPanZoomController()->UpdateViewport(mBounds.width, mBounds.height);
+        mGestureEventListener->GetAsyncPanZoomController()->UpdateViewportSize(mBounds.width, mBounds.height);
+        mGestureEventListener->GetAsyncPanZoomController()->SetDPI(NS_lround(GetDPI()));
         asyncPanZoomController.forget();
 
         if (mCompositorParent) {

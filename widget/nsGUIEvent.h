@@ -92,8 +92,6 @@ class nsHashKey;
 #define NS_MOZTOUCH_EVENT                 42
 #define NS_PLUGIN_EVENT                   43
 #define NS_TOUCH_EVENT                    44
-#define NS_PINCH_EVENT                    45
-#define NS_TAP_EVENT                      46
 
 // These flags are sort of a mess. They're sort of shared between event
 // listener flags and event flags, but only some of them. You've been
@@ -521,30 +519,17 @@ class nsHashKey;
 #define NS_FULLSCREENERROR           (NS_FULL_SCREEN_START + 1)
 
 #define NS_TOUCH_EVENT_START         5200
-#define NS_TOUCH_START_POINTER       (NS_TOUCH_EVENT_START)
-#define NS_TOUCH_START               (NS_TOUCH_EVENT_START+1)
-#define NS_TOUCH_MOVE                (NS_TOUCH_EVENT_START+2)
-#define NS_TOUCH_END                 (NS_TOUCH_EVENT_START+3)
-#define NS_TOUCH_ENTER               (NS_TOUCH_EVENT_START+4)
-#define NS_TOUCH_LEAVE               (NS_TOUCH_EVENT_START+5)
-#define NS_TOUCH_CANCEL              (NS_TOUCH_EVENT_START+6)
+#define NS_TOUCH_START               (NS_TOUCH_EVENT_START)
+#define NS_TOUCH_MOVE                (NS_TOUCH_EVENT_START+1)
+#define NS_TOUCH_END                 (NS_TOUCH_EVENT_START+2)
+#define NS_TOUCH_ENTER               (NS_TOUCH_EVENT_START+3)
+#define NS_TOUCH_LEAVE               (NS_TOUCH_EVENT_START+4)
+#define NS_TOUCH_CANCEL              (NS_TOUCH_EVENT_START+5)
 
 // Pointerlock DOM API
 #define NS_POINTERLOCK_START         5300
 #define NS_POINTERLOCKCHANGE         (NS_POINTERLOCK_START)
 #define NS_POINTERLOCKERROR          (NS_POINTERLOCK_START + 1)
-
-#define NS_PINCH_EVENT_START         5400
-#define NS_PINCH_START               (NS_PINCH_EVENT_START)
-#define NS_PINCH_SCALE               (NS_PINCH_EVENT_START+1)
-#define NS_PINCH_END                 (NS_PINCH_EVENT_START+2)
-
-#define NS_TAP_EVENT_START           5500
-#define NS_TAP_LONG                  (NS_TAP_EVENT_START+1)
-#define NS_TAP_UP                    (NS_TAP_EVENT_START+2)
-#define NS_TAP_CONFIRMED             (NS_TAP_EVENT_START+3)
-#define NS_TAP_DOUBLE                (NS_TAP_EVENT_START+4)
-#define NS_TAP_CANCEL                (NS_TAP_EVENT_START+5)
 
 /**
  * Return status for event processors, nsEventStatus, is defined in
@@ -1630,53 +1615,14 @@ public:
   PRUint32 streamId;
 };
 
-/**
- * Touch data for a single touch. Similar to nsDOMTouch but designed for
- * off-main-thread use. This is more for just storing touch data, whereas
- * nsDOMTouch derives from nsIDOMTouch so it is ideal for actually dispatching
- * into the DOM.
- */
-class SingleTouchData MOZ_FINAL
-{
-public:
-  SingleTouchData(PRInt32 aIdentifier,
-                  nsIntPoint aPoint,
-                  nsIntPoint aRadius,
-                  float aRotationAngle,
-                  float aForce)
-    : mIdentifier(aIdentifier),
-      mPoint(aPoint),
-      mRadius(aRadius),
-      mRotationAngle(aRotationAngle),
-      mForce(aForce)
-  {
-
-  }
-
-  PRInt32 GetIdentifier() const { return mIdentifier; }
-  const nsIntPoint& GetPoint() const { return mPoint; }
-  const nsIntPoint& GetRadius() const { return mRadius; }
-  float GetRotationAngle() const { return mRotationAngle; }
-  float GetForce() const { return mForce; }
-
-protected:
-  PRInt32 mIdentifier;
-  nsIntPoint mPoint;
-  nsIntPoint mRadius;
-  float mRotationAngle;
-  float mForce;
-};
-
 class nsTouchEvent : public nsInputEvent
 {
 public:
-
   nsTouchEvent(bool isTrusted, nsTouchEvent *aEvent)
     : nsInputEvent(isTrusted,
                    aEvent->message,
                    aEvent->widget,
-                   NS_TOUCH_EVENT),
-      id(-1)
+                   NS_TOUCH_EVENT)
   {
     modifiers = aEvent->modifiers;
     time = aEvent->time;
@@ -1688,66 +1634,12 @@ public:
   {
     MOZ_COUNT_CTOR(nsTouchEvent);
   }
-  nsTouchEvent(PRInt32 aId, bool isTrusted, PRUint32 msg, nsIWidget* w)
-    : nsInputEvent(isTrusted, msg, w, NS_TOUCH_EVENT),
-      id(aId)
-  {
-    MOZ_COUNT_CTOR(nsTouchEvent);
-  }
   ~nsTouchEvent()
   {
     MOZ_COUNT_DTOR(nsTouchEvent);
   }
 
-  /**
-   * Main-thread touches. This uses nsIDOMTouch, which requires that whatever
-   * code runs it be on the main thread. Unfortunately, this limits event
-   * processing off the main thread. Use touchData instead for other threads.
-   */
   nsTArray<nsCOMPtr<nsIDOMTouch> > touches;
-
-  /**
-   * Secondary array of touches. This is useful for off-main-thread event
-   * processing. This doesn't have all of the DOM goop in it and is just copied
-   * around instead of storing nsCOMPtr because it's a smaller object overall.
-   */
-  nsTArray<SingleTouchData> touchData;
-
-  PRInt32 id;
-};
-
-class nsPinchEvent : public nsInputEvent
-{
-public:
-  nsPinchEvent(bool isTrusted, PRUint32 msg, nsIWidget* w)
-    : nsInputEvent(isTrusted, msg, w, NS_PINCH_EVENT)
-  {
-    MOZ_COUNT_CTOR(nsPinchEvent);
-  }
-  ~nsPinchEvent()
-  {
-    MOZ_COUNT_DTOR(nsPinchEvent);
-  }
-
-  nsIntPoint focusPoint;
-  float currentSpan;
-  float previousSpan;
-};
-
-class nsTapEvent : public nsInputEvent
-{
-public:
-  nsTapEvent(bool isTrusted, PRUint32 msg, nsIWidget* w)
-    : nsInputEvent(isTrusted, msg, w, NS_TAP_EVENT)
-  {
-    MOZ_COUNT_CTOR(nsTapEvent);
-  }
-  ~nsTapEvent()
-  {
-    MOZ_COUNT_DTOR(nsTapEvent);
-  }
-
-  nsIntPoint point;
 };
 
 /**

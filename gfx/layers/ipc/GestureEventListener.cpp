@@ -24,19 +24,19 @@ GestureEventListener::~GestureEventListener()
 
 }
 
-nsEventStatus GestureEventListener::HandleTouchEvent(const nsTouchEvent& event)
+nsEventStatus GestureEventListener::HandleTouchEvent(const MultiTouchEvent& event)
 {
-  switch (event.message)
+  switch (event.mMessage)
   {
-  case NS_TOUCH_START:
-    mTouchStartTime = event.time;
+  case MULTITOUCH_START:
+    mTouchStartTime = event.mTime;
     HandlePinchEvent(event, true);
 
-  case NS_TOUCH_START_POINTER: {
-    for (size_t i = 0; i < event.touchData.Length(); i++) {
+  case MULTITOUCH_START_POINTER: {
+    for (size_t i = 0; i < event.mTouches.Length(); i++) {
       bool foundAlreadyExistingTouch = false;
       for (size_t j = 0; j < mTouches.Length(); j++) {
-        if (mTouches[j].GetIdentifier() == event.touchData[i].GetIdentifier()) {
+        if (mTouches[j].mIdentifier == event.mTouches[i].mIdentifier) {
           foundAlreadyExistingTouch = true;
         }
       }
@@ -47,11 +47,7 @@ nsEventStatus GestureEventListener::HandleTouchEvent(const nsTouchEvent& event)
       // If it already existed, we don't want to add it twice because that
       // messes with our touch move/end code.
       if (!foundAlreadyExistingTouch)
-        mTouches.AppendElement(event.touchData[i]);
-
-      char thing[256];
-      sprintf(thing, "ADDED ID: %d", event.touchData[i].GetIdentifier());
-      NS_ASSERTION(false, thing);
+        mTouches.AppendElement(event.mTouches[i]);
     }
 
     if (mTouches.Length() == 2) {
@@ -61,19 +57,16 @@ nsEventStatus GestureEventListener::HandleTouchEvent(const nsTouchEvent& event)
 
     break;
   }
-  case NS_TOUCH_MOVE: {
+  case MULTITOUCH_MOVE: {
     // If we move at all, just bail out of the tap.
     HandleTapCancel(event);
 
-    char thing[256];
-    sprintf(thing, "!!!!!!!!!!!!!!!!!!TOUCH MOVED: %d [%d total]", event.touchData[0].GetIdentifier(), event.touchData.Length());
-    NS_ASSERTION(false, thing);
     bool foundAlreadyExistingTouch = false;
     for (size_t i = 0; i < mTouches.Length(); i++) {
-      for (size_t j = 0; j < event.touchData.Length(); j++) {
-        if (mTouches[i].GetIdentifier() == event.touchData[j].GetIdentifier()) {
+      for (size_t j = 0; j < event.mTouches.Length(); j++) {
+        if (mTouches[i].mIdentifier == event.mTouches[j].mIdentifier) {
           foundAlreadyExistingTouch = true;
-          mTouches[i] = event.touchData[j];
+          mTouches[i] = event.mTouches[j];
         }
       }
     }
@@ -82,25 +75,20 @@ nsEventStatus GestureEventListener::HandleTouchEvent(const nsTouchEvent& event)
 
     break;
   }
-  case NS_TOUCH_END: {
+  case MULTITOUCH_END: {
     bool foundAlreadyExistingTouch = false;
-    for (size_t i = 0; i < event.touchData.Length() && !foundAlreadyExistingTouch; i++) {
+    for (size_t i = 0; i < event.mTouches.Length() && !foundAlreadyExistingTouch; i++) {
       for (size_t j = 0; j < mTouches.Length() && !foundAlreadyExistingTouch; j++) {
-        if (event.touchData[i].GetIdentifier() == mTouches[j].GetIdentifier()) {
+        if (event.mTouches[i].mIdentifier == mTouches[j].mIdentifier) {
           foundAlreadyExistingTouch = true;
-          char thing[256];
-          sprintf(thing, "REMOVED ID: %d / %d", event.touchData[i].GetIdentifier(), mTouches.Length());
-          NS_ASSERTION(false, thing);
           mTouches.RemoveElementAt(j);
-          sprintf(thing, "AFTER: %d", mTouches.Length());
-          NS_ASSERTION(false, thing);
         }
       }
     }
 
     NS_WARN_IF_FALSE(foundAlreadyExistingTouch, "Touch ended, but not in list");
 
-    if (event.time - mTouchStartTime <= MAX_TAP_TIME) {
+    if (event.mTime - mTouchStartTime <= MAX_TAP_TIME) {
       // XXX: Incorrect use of the tap event. In the future, we want to send this
       // on NS_TOUCH_END, then have a short timer afterwards which sends
       // SingleTapConfirmed. Since we don't have double taps yet, this is fine for
@@ -116,9 +104,8 @@ nsEventStatus GestureEventListener::HandleTouchEvent(const nsTouchEvent& event)
 
     break;
   }
-  case NS_TOUCH_CANCEL:
+  case MULTITOUCH_CANCEL:
     HandlePinchEvent(event, true);
-    NS_ASSERTION(false, "CANCEL!!!!");
     break;
 
   }
@@ -129,67 +116,47 @@ nsEventStatus GestureEventListener::HandleTouchEvent(const nsTouchEvent& event)
   return mAsyncPanZoomController->HandleInputEvent(event);
 }
 
-nsEventStatus GestureEventListener::HandlePinchEvent(const nsTouchEvent& event, bool clearTouches)
+nsEventStatus GestureEventListener::HandlePinchEvent(const MultiTouchEvent& event, bool clearTouches)
 {
-  size_t uniqueTouches = 0;
-  for (size_t i = 0; i < mTouches.Length(); i++) {
-    if (mTouches[i].GetIdentifier() != mTouches[0].GetIdentifier()) {
-      uniqueTouches++;
-    }
-  }
-
-  if (/*uniqueTouches > 1*/ mTouches.Length() > 1 && !clearTouches) {
-    NS_ASSERTION(false, "((((((((((((((((((((((((((MULTIPLE TOUCHES");
-    SingleTouchData &firstTouch = mTouches[0],
-                    &secondTouch = mTouches[mTouches.Length() - 1];
+  if (mTouches.Length() > 1 && !clearTouches) {
+    const nsIntPoint& firstTouch = mTouches[0].mScreenPoint,
+                      secondTouch = mTouches[mTouches.Length() - 1].mScreenPoint;
     nsIntPoint focusPoint =
-      nsIntPoint((firstTouch.GetPoint().x + secondTouch.GetPoint().x)/2,
-                 (firstTouch.GetPoint().y + secondTouch.GetPoint().y)/2);
+      nsIntPoint((firstTouch.x + secondTouch.x)/2,
+                 (firstTouch.y + secondTouch.y)/2);
     float currentSpan =
-      sqrt(float((firstTouch.GetPoint().x - secondTouch.GetPoint().x) *
-                 (firstTouch.GetPoint().x - secondTouch.GetPoint().x) +
-                 (firstTouch.GetPoint().y - secondTouch.GetPoint().y) *
-                 (firstTouch.GetPoint().y - secondTouch.GetPoint().y)));
+      sqrt(float((firstTouch.x - secondTouch.x) *
+                 (firstTouch.x - secondTouch.x) +
+                 (firstTouch.y - secondTouch.y) *
+                 (firstTouch.y - secondTouch.y)));
 
     if (mState == NoGesture) {
-      nsPinchEvent pinchEvent(true, NS_PINCH_START, nsnull);
-      pinchEvent.time = event.time;
-      pinchEvent.focusPoint = focusPoint;
-      pinchEvent.currentSpan = currentSpan;
-      pinchEvent.previousSpan = currentSpan;
+      PinchEvent pinchEvent(PINCH_START,
+                            event.mTime,
+                            focusPoint,
+                            currentSpan,
+                            currentSpan);
 
       mAsyncPanZoomController->HandleInputEvent(pinchEvent);
 
       mState = InPinchGesture;
     } else {
-      NS_ASSERTION(false, "((((((((((((((((((((((((SENDING SCALE");
-      nsPinchEvent pinchEvent(true, NS_PINCH_SCALE, nsnull);
-      pinchEvent.time = event.time;
-      pinchEvent.focusPoint = focusPoint;
-      pinchEvent.currentSpan = currentSpan;
-      pinchEvent.previousSpan = mPreviousSpan;
+      PinchEvent pinchEvent(PINCH_SCALE,
+                            event.mTime,
+                            focusPoint,
+                            currentSpan,
+                            mPreviousSpan);
 
       mAsyncPanZoomController->HandleInputEvent(pinchEvent);
     }
     mPreviousSpan = currentSpan;
     return nsEventStatus_eConsumeNoDefault;
   } else if (mState == InPinchGesture) {
-    nsPinchEvent pinchEvent(true, NS_PINCH_END, nsnull);
-    pinchEvent.time = event.time;
-    pinchEvent.focusPoint = mTouches[0].GetPoint();
-    for (size_t i = 0; i < mTouches.Length(); i++) {
-      char thing[256];
-      sprintf(thing, "ID LEFT[%d]: %d", i, mTouches[i].GetIdentifier());
-      NS_ASSERTION(false, thing);
-      if (mTouches[i].GetIdentifier() != event.touchData[0].GetIdentifier()) {
-        pinchEvent.focusPoint = mTouches[i].GetPoint();
-        break;
-      }
-    }
-
-    //if (uniqueTouches < mTouches.Length()) {
-    //  mTouches.RemoveElementsAt(uniqueTouches, mTouches.Length() - 1);
-    //}
+    PinchEvent pinchEvent(PINCH_END,
+                          event.mTime,
+                          mTouches[0].mScreenPoint,
+                          1.0f,
+                          1.0f);
 
     if (clearTouches) {
       mTouches.Clear();
@@ -204,29 +171,23 @@ nsEventStatus GestureEventListener::HandlePinchEvent(const nsTouchEvent& event, 
   return nsEventStatus_eIgnore;
 }
 
-nsEventStatus GestureEventListener::HandleSingleTapUpEvent(const nsTouchEvent& event)
+nsEventStatus GestureEventListener::HandleSingleTapUpEvent(const MultiTouchEvent& event)
 {
-  nsTapEvent tapEvent(true, NS_TAP_UP, nsnull);
-  tapEvent.point = event.touchData[0].GetPoint();
-  tapEvent.time = event.time;
-
+  TapEvent tapEvent(TAP_UP, event.mTime, event.mTouches[0].mScreenPoint);
   mAsyncPanZoomController->HandleInputEvent(tapEvent);
 
   return nsEventStatus_eConsumeDoDefault;
 }
 
-nsEventStatus GestureEventListener::HandleSingleTapConfirmedEvent(const nsTouchEvent& event)
+nsEventStatus GestureEventListener::HandleSingleTapConfirmedEvent(const MultiTouchEvent& event)
 {
-  nsTapEvent tapEvent(true, NS_TAP_CONFIRMED, nsnull);
-  tapEvent.point = event.touchData[0].GetPoint();
-  tapEvent.time = event.time;
-
+  TapEvent tapEvent(TAP_CONFIRMED, event.mTime, event.mTouches[0].mScreenPoint);
   mAsyncPanZoomController->HandleInputEvent(tapEvent);
 
   return nsEventStatus_eConsumeDoDefault;
 }
 
-nsEventStatus GestureEventListener::HandleTapCancel(const nsTouchEvent& event)
+nsEventStatus GestureEventListener::HandleTapCancel(const MultiTouchEvent& event)
 {
   // XXX: In the future we will have to actually send a cancel notification to
   // Gecko, but for now since we're doing both the "SingleUp" and

@@ -10,7 +10,7 @@
 #include "GeckoContentController.h"
 #include "mozilla/ReentrantMonitor.h"
 #include "mozilla/RefPtr.h"
-#include "nsGUIEvent.h"
+#include "InputEvent.h"
 #include "Axis.h"
 #include "CompositeEvent.h"
 
@@ -51,13 +51,14 @@ public:
    * General handler for any input event. Calls another Handle*Event based on
    * the type of input.
    */
-  nsEventStatus HandleInputEvent(const nsInputEvent& event);
+  nsEventStatus HandleInputEvent(const InputEvent& event);
 
   /**
-   * Updates the viewport.
+   * Updates the viewport size, i.e. the dimensions of the screen content will
+   * actually be rendered onto in device pixels.
    * The monitor must be held while calling this.
    */
-  void UpdateViewport(int width, int height);
+  void UpdateViewportSize(int width, int height);
 
   // --------------------------------------------------------------------------
   // These methods must only be called on the compositor thread.
@@ -91,20 +92,31 @@ public:
    */
   void DoFling();
 
+  /**
+   * Toggles the compositing flag. This is used for B2G where content processes
+   * have been spawned but aren't actually being composited yet. This prevents
+   * us from accidentally moving stuff around even though it's not active in the
+   * layer tree.
+   *
+   * *** You must hold the monitor while calling this!
+   */
+  void SetCompositing(bool aCompositing);
+
   // --------------------------------------------------------------------------
-  // These methods can be called anywhere.
+  // These methods can be called from any thread.
   //
 
   /**
-   * Check whether or not the layers have been updated.
+   * Check whether or not the metrics have been updated since a reset has last
+   * been done.
    */
-  bool GetLayersUpdated();
+  bool GetMetricsUpdated();
 
   /**
-   * Resets the layers update status to false. This should be used once a layers
-   * update has been handled.
+   * Resets the metrics update status to false. This should be used once a
+   * metrics update has been handled.
    */
-  void ResetLayersUpdated();
+  void ResetMetricsUpdated();
 
   /**
    * Gets the reentrant monitor for thread safety.
@@ -129,19 +141,20 @@ public:
   void SetFrameMetrics(const FrameMetrics& aFrameMetrics);
 
   /**
-   * Utility function that simply gets the viewport from the GetFrameMetrics()
-   * call and adds the scroll offset to it.
-   *
-   * *** You must hold the monitor while calling this!
-   */
-  const nsIntRect GetAdjustedViewport();
-
-  /**
    * Converts a point from layer view coordinates to layer coordinates. In other
    * words, given a point measured in pixels from the top left corner of the
    * layer view, returns the point in pixels measured from the last scroll.
    */
   const nsIntPoint ConvertViewPointToLayerPoint(const nsIntPoint& viewPoint);
+
+  /**
+   * Sets the DPI of the device for use within panning and zooming logic.
+   *
+   * *** You must hold the monitor while calling this! If you call this
+   * immediately after initializing the class, it's safe to do so without
+   * holding the monitor.
+   */
+  void SetDPI(int aDPI);
 
 protected:
   /**
@@ -163,108 +176,97 @@ protected:
   static const char* VIEWPORT_CALCULATE_DISPLAY_PORT;
 
   /**
-   * Frames for the double tap zoom animation. This sequence looks smoother than
-   * simply straight-line zooming it.
-   */
-  static float ZOOM_ANIMATION_FRAMES[];
-
-  /**
    * Epsilon helper for float precision.
    */
   static float EPSILON;
 
   /**
-   * General handler for touch events.
-   * Calls the onTouch* handlers based on the type of input.
+   * Maximum amount of time while panning before sending a viewport change. This
+   * will asynchronously repaint the page. It is also forced when panning stops.
    */
-  nsEventStatus HandleTouchEvent(const nsTouchEvent& event);
-
-  /**
-   * General handler for pinch events.
-   * Calls the onScale* handlers based on the type of input.
-   */
-  nsEventStatus HandleSimpleScaleGestureEvent(const nsPinchEvent& event);
-
-  /**
-   * General handler for tap events.
-   * Calls the on*Tap/on*Press handlers based on the type of input.
-   */
-  nsEventStatus HandleTapGestureEvent(const nsTapEvent& event);
+  static PRInt32 REPAINT_INTERVAL;
 
   /**
    * Helper method for touches beginning. Sets everything up for panning and any
    * multitouch gestures.
    */
-  nsEventStatus OnTouchStart(const nsTouchEvent& event);
+  nsEventStatus OnTouchStart(const MultiTouchEvent& event);
 
   /**
    * Helper method for touches moving. Does any transforms needed when panning.
    */
-  nsEventStatus OnTouchMove(const nsTouchEvent& event);
+  nsEventStatus OnTouchMove(const MultiTouchEvent& event);
 
   /**
    * Helper method for touches ending. Redraws the screen if necessary and does
    * any cleanup after a touch has ended.
    */
-  nsEventStatus OnTouchEnd(const nsTouchEvent& event);
+  nsEventStatus OnTouchEnd(const MultiTouchEvent& event);
 
   /**
    * Helper method for touches being cancelled. Treated roughly the same as a
-   * touch ending (onTouchEnd()).
+   * touch ending (OnTouchEnd()).
    */
-  nsEventStatus OnTouchCancel(const nsTouchEvent& event);
+  nsEventStatus OnTouchCancel(const MultiTouchEvent& event);
 
   /**
-   * Helper method for scales beginning. Distinct from the onTouch* handlers in
+   * Helper method for scales beginning. Distinct from the OnTouch* handlers in
    * that this implies some outside implementation has determined that the user
    * is pinching. On Android, this is the SimpleScaleGestureDetector.
    */
-  nsEventStatus OnScaleBegin(const nsPinchEvent& event);
+  nsEventStatus OnScaleBegin(const PinchEvent& event);
 
   /**
    * Helper method for scaling. As the user moves their fingers when pinching,
    * this changes the scale of the page.
    */
-  nsEventStatus OnScale(const nsPinchEvent& event);
+  nsEventStatus OnScale(const PinchEvent& event);
 
   /**
    * Helper method for scales ending. Redraws the screen if necessary and does
    * any cleanup after a scale has ended.
    */
-  nsEventStatus OnScaleEnd(const nsPinchEvent& event);
+  nsEventStatus OnScaleEnd(const PinchEvent& event);
+
+  /**
+   * Wrapper for the GeckoContentController's SendGestureEvent method to first
+   * take a message name and event, and transform the point to layer coordinates.
+   */
+  void SendGestureEvent(const TapEvent& event, const nsAString& message);
 
   /**
    * Helper method for long press gestures. Sends a notification to browser.js
    * if the press is valid.
    */
-  nsEventStatus OnLongPress(const nsTapEvent& event);
+  nsEventStatus OnLongPress(const TapEvent& event);
 
   /**
    * Helper method for single tap gestures. Gets called before an
-   * onSingleTapConfirmed() call. Sends a notification to browser.js if the
+   * OnSingleTapConfirmed() call. Sends a notification to browser.js if the
    * tap is valid.
    */
-  nsEventStatus OnSingleTapUp(const nsTapEvent& event);
+  nsEventStatus OnSingleTapUp(const TapEvent& event);
 
   /**
    * Helper method for a single tap confirmed. Gets sent if a double tap doesn't
    * happen after a single tap within some outside implementation's timeout.
    * Sends a notification to browser.js if the tap is valid.
    */
-  nsEventStatus OnSingleTapConfirmed(const nsTapEvent& event);
+  nsEventStatus OnSingleTapConfirmed(const TapEvent& event);
 
   /**
    * Helper method for double taps. Sends a notification to browser.js if the
    * tap is valid.
    */
-  nsEventStatus OnDoubleTap(const nsTapEvent& event);
+  nsEventStatus OnDoubleTap(const TapEvent& event);
 
   /**
-   * Cancels any touch gesture currently going to Gecko. Used primarily when a
-   * user taps the screen over some clickable content but then pans down instead
-   * of letting go.
+   * Helper method to cancel any gesture currently going to Gecko. Used
+   * primarily when a user taps the screen over some clickable content but then
+   * pans down instead of letting go (i.e. to cancel a previous touch so that a
+   * new one can properly take effect.
    */
-  nsEventStatus OnCancelTap();
+  nsEventStatus OnCancelTap(const TapEvent& event);
 
   /**
    * Scrolls the viewport by an X,Y offset.
@@ -305,7 +307,7 @@ protected:
    * began. That is, it is the distance between the current position and the
    * initial position of this touch.
    */
-  float PanDistance(const nsTouchEvent& event);
+  float PanDistance(const MultiTouchEvent& event);
 
   /**
    * Gets a vector of the velocities of each axis.
@@ -317,28 +319,21 @@ protected:
    * There is an array of these on every nsTouchEvent that is used off-main-thread.
    * This gets only the first one and assumes the rest are either missing or not relevant.
    */
-  SingleTouchData& GetTouchFromEvent(const nsTouchEvent& event);
+  SingleTouchData& GetTouchFromEvent(const MultiTouchEvent& event);
 
   /**
    * Does any panning required due to a new touch event.
    */
-  void TrackTouch(const nsTouchEvent& event);
+  void TrackTouch(const MultiTouchEvent& event);
 
   /**
    * Recalculates the displayport. Ideally, this should paint an area bigger
-   * than the actual screen. Note that it takes in a viewport and page
-   * rectangle, and generates a displayport from it. The viewport refers to the
-   * size of the screen, while the displayport is the area actually painted by
-   * Gecko. We paint a larger area than the screen so that when you scroll down,
-   * you don't checkerboard immediately, and the compositor has time to react to
-   * any scrolling.
+   * than the actual screen. The viewport refers to the size of the screen,
+   * while the displayport is the area actually painted by Gecko. We paint
+   * a larger area than the screen so that when you scroll down, you don't
+   * checkerboard immediately.
    */
-  const nsIntRect CalculateDisplayPort();
-
-  /**
-   * Returns the DPI of the screen. Highly platform-specific.
-   */
-  int GetDPI();
+  const nsIntRect CalculatePendingDisplayPort();
 
   /**
    * Utility function to send an updated viewport. Calls into
@@ -370,9 +365,11 @@ private:
   AxisX mX;
   AxisY mY;
   PRInt32 mLastEventTime;
+  PRInt32 mLastRepaint;
   nsIntPoint mLastZoomFocus;
   FrameMetrics mFrameMetrics;
-  bool mLayersUpdated;
+  bool mMetricsUpdated;
+  bool mIsCompositing;
   mutable ReentrantMonitor mReentrantMonitor;
   int mDPI;
 

@@ -155,7 +155,7 @@ private:
 
   void TransformShadowTree();
   void UpdateAsyncPanZoom(Layer* aLayer);
-  void ApplyAsyncPanZoom(Layer* aLayer);
+  bool ApplyAsyncPanZoom(Layer* aLayer);
 
   /**
    * Add a compositor to the global compositor map.

@@ -8,7 +8,7 @@
 #define mozilla_layers_GestureEventListener_h
 
 #include "mozilla/RefPtr.h"
-#include "nsGUIEvent.h"
+#include "InputEvent.h"
 #include "Axis.h"
 #include "CompositeEvent.h"
 
@@ -46,7 +46,7 @@ public:
    * of a gesture, then we pass it along to AsyncPanZoomController. Otherwise,
    * it gets consumed here and never forwarded along.
    */
-  nsEventStatus HandleTouchEvent(const nsTouchEvent& event);
+  nsEventStatus HandleTouchEvent(const MultiTouchEvent& event);
 
   /**
    * Returns the AsyncPanZoomController stored on this class and used for
@@ -73,7 +73,7 @@ protected:
    * "clearTouches" marks whether or not to terminate any pinch currently
    * happening.
    */
-  nsEventStatus HandlePinchEvent(const nsTouchEvent& event, bool clearTouches);
+  nsEventStatus HandlePinchEvent(const MultiTouchEvent& event, bool clearTouches);
 
   /**
    * Attempts to handle the event as a single tap event, which highlights links
@@ -82,7 +82,7 @@ protected:
    * know about touches ending (and we only know if a touch was a tap once it
    * ends).
    */
-  nsEventStatus HandleSingleTapUpEvent(const nsTouchEvent& event);
+  nsEventStatus HandleSingleTapUpEvent(const MultiTouchEvent& event);
 
   /**
    * Attempts to handle a single tap confirmation. This is what will actually
@@ -90,7 +90,7 @@ protected:
    * from being passed along to AsyncPanZoomController since APZC needs to know
    * about touches ending (and we only know if a touch was a tap once it ends).
    */
-  nsEventStatus HandleSingleTapConfirmedEvent(const nsTouchEvent& event);
+  nsEventStatus HandleSingleTapConfirmedEvent(const MultiTouchEvent& event);
 
   /**
    * Attempts to handle a tap event cancellation. This happens when we think
@@ -99,7 +99,7 @@ protected:
    * AsyncPanZoomController since APZC needs to know about touches ending( and
    * we only know if a touch was a tap once it ends).
    */
-  nsEventStatus HandleTapCancel(const nsTouchEvent& event);
+  nsEventStatus HandleTapCancel(const MultiTouchEvent& event);
 
   nsRefPtr<AsyncPanZoomController> mAsyncPanZoomController;
   nsTArray<SingleTouchData> mTouches;

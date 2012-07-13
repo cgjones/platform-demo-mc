@@ -535,17 +535,18 @@ SampleAnimations(Layer* aLayer, TimeStamp aPoint, bool* aActiveAnimation)
   }
 }
 
-void
+bool
 CompositorParent::ApplyAsyncPanZoom(Layer* aLayer)
 {
+  bool foundScrollableFrame = false;
   for (Layer* child = aLayer->GetFirstChild(); child;
        child = child->GetNextSibling()) {
-    ApplyAsyncPanZoom(child);
+    foundScrollableFrame |= ApplyAsyncPanZoom(child);
   }
 
   ContainerLayer* container = aLayer->AsContainerLayer();
   if (!container) {
-    return;
+    return foundScrollableFrame;
   }
 
   const FrameMetrics& metrics = container->GetFrameMetrics();
@@ -554,7 +555,7 @@ CompositorParent::ApplyAsyncPanZoom(Layer* aLayer)
   gfx3DMatrix treeTransform;
   gfxPoint reverseViewTranslation;
 
-  if (!metrics.mDisplayPort.IsEmpty()) {
+  if (metrics.IsScrollable()) {
     mAsyncPanZoomController->GetContentTransformForFrame(metrics,
                                                          transform,
                                                          mWidgetSize,
@@ -563,12 +564,20 @@ CompositorParent::ApplyAsyncPanZoom(Layer* aLayer)
     ShadowLayer* shadow = aLayer->AsShadowLayer();
     shadow->SetShadowTransform(transform * treeTransform);
     TranslateFixedLayers(aLayer, reverseViewTranslation);
+    return true;
   }
+
+  return foundScrollableFrame;
 }
 
 void
 CompositorParent::UpdateAsyncPanZoom(Layer* aLayer)
 {
+  for (Layer* child = aLayer->GetFirstChild(); child;
+       child = child->GetNextSibling()) {
+    UpdateAsyncPanZoom(child);
+  }
+
   ContainerLayer* container = aLayer->AsContainerLayer();
   if (!container) {
     return;
@@ -579,7 +588,7 @@ CompositorParent::UpdateAsyncPanZoom(Layer* aLayer)
 
   float scaleX = transform.GetXScale();
 
-  if (!metrics.mDisplayPort.IsEmpty()) {
+  if (metrics.IsScrollable()) {
     if (mIsFirstPaint) {
       mContentRect = metrics.mContentRect;
       SetFirstPaintViewport(metrics.mViewportScrollOffset,
@@ -591,9 +600,6 @@ CompositorParent::UpdateAsyncPanZoom(Layer* aLayer)
       SetPageRect(metrics.mCSSContentRect);
     }
 
-    // We synchronise the viewport information with Java after sending the above
-    // notifications, so that Java can take these into account in its response.
-    // Calculate the absolute display port to send to Java
     nsIntRect displayPort = metrics.mDisplayPort;
     nsIntPoint scrollOffset = metrics.mViewportScrollOffset;
     displayPort.x += scrollOffset.x;
@@ -602,11 +608,6 @@ CompositorParent::UpdateAsyncPanZoom(Layer* aLayer)
     SyncViewportInfo(displayPort, 1/scaleX, mLayersUpdated,
                      mScrollOffset, mXScale, mYScale);
     mLayersUpdated = false;
-  }
-
-  for (Layer* child = aLayer->GetFirstChild(); child;
-       child = child->GetNextSibling()) {
-    UpdateAsyncPanZoom(child);
   }
 }
 
@@ -634,42 +635,34 @@ CompositorParent::TransformShadowTree()
     ScheduleComposition();
 
 #ifdef MOZ_JAVA_COMPOSITOR
-  if (mAsyncPanZoomController) {
-    mAsyncPanZoomController->GetContentTransformForFrame(metrics,
-                                                         rootTransform,
-                                                         mWidgetSize,
-                                                         &treeTransform,
-                                                         &reverseViewTranslation);
-  } else {
-    // Handle transformations for asynchronous panning and zooming. We determine the
-    // zoom used by Gecko from the transformation set on the root layer, and we
-    // determine the scroll offset used by Gecko from the frame metrics of the
-    // primary scrollable layer. We compare this to the desired zoom and scroll
-    // offset in the view transform we obtained from Java in order to compute the
-    // transformation we need to apply.
-    float tempScaleDiffX = rootScaleX * mXScale;
-    float tempScaleDiffY = rootScaleY * mYScale;
+  // Handle transformations for asynchronous panning and zooming. We determine the
+  // zoom used by Gecko from the transformation set on the root layer, and we
+  // determine the scroll offset used by Gecko from the frame metrics of the
+  // primary scrollable layer. We compare this to the desired zoom and scroll
+  // offset in the view transform we obtained from Java in order to compute the
+  // transformation we need to apply.
+  float tempScaleDiffX = rootScaleX * mXScale;
+  float tempScaleDiffY = rootScaleY * mYScale;
 
-    nsIntPoint metricsScrollOffset(0, 0);
-    if (metrics.IsScrollable())
-      metricsScrollOffset = metrics.mViewportScrollOffset;
+  nsIntPoint metricsScrollOffset(0, 0);
+  if (metrics.IsScrollable())
+    metricsScrollOffset = metrics.mViewportScrollOffset;
 
-    nsIntPoint scrollCompensation(
-      (mScrollOffset.x / tempScaleDiffX - metricsScrollOffset.x) * mXScale,
-      (mScrollOffset.y / tempScaleDiffY - metricsScrollOffset.y) * mYScale);
+  nsIntPoint scrollCompensation(
+    (mScrollOffset.x / tempScaleDiffX - metricsScrollOffset.x) * mXScale,
+    (mScrollOffset.y / tempScaleDiffY - metricsScrollOffset.y) * mYScale);
 
-    treeTransform = gfx3DMatrix(ViewTransform(-scrollCompensation, mXScale, mYScale));
+  treeTransform = gfx3DMatrix(ViewTransform(-scrollCompensation, mXScale, mYScale));
 
-    float offsetX = mScrollOffset.x / tempScaleDiffX,
-          offsetY = mScrollOffset.y / tempScaleDiffY;
+  float offsetX = mScrollOffset.x / tempScaleDiffX,
+        offsetY = mScrollOffset.y / tempScaleDiffY;
 
-    offsetX = NS_MAX((float)mContentRect.x,
-                     NS_MIN(offsetX, (float)(mContentRect.XMost() - mWidgetSize.width)));
-    offsetY = NS_MAX((float)mContentRect.y,
-                      NS_MIN(offsetY, (float)(mContentRect.YMost() - mWidgetSize.height)));
-    reverseViewTranslation = gfxPoint(offsetX - metricsScrollOffset.x,
-                                      offsetY - metricsScrollOffset.y);
-  }
+  offsetX = NS_MAX((float)mContentRect.x,
+                   NS_MIN(offsetX, (float)(mContentRect.XMost() - mWidgetSize.width)));
+  offsetY = NS_MAX((float)mContentRect.y,
+                    NS_MIN(offsetY, (float)(mContentRect.YMost() - mWidgetSize.height)));
+  reverseViewTranslation = gfxPoint(offsetX - metricsScrollOffset.x,
+                                    offsetY - metricsScrollOffset.y);
 #endif
 
   shadow->SetShadowTransform(treeTransform * currentTransform);
@@ -679,13 +672,17 @@ CompositorParent::TransformShadowTree()
     // If there's a fling animation happening, advance it by 1 frame.
     mAsyncPanZoomController->DoFling();
 
-    ApplyAsyncPanZoom(root);
+    // Apply transforms for panning and zooming.
+    bool foundScrollableFrame = ApplyAsyncPanZoom(root);
+
+    // Inform the AsyncPanZoomController about whether or not we're compositing
+    // a scrollable frame.
+    mAsyncPanZoomController->SetCompositing(foundScrollableFrame);
 
     // If there has been a layers update in the form of a pan or zoom, then
     // signal it during synchronization.
-    if (mAsyncPanZoomController->GetLayersUpdated()) {
-      mLayersUpdated = true;
-      mAsyncPanZoomController->ResetLayersUpdated();
+    if (mAsyncPanZoomController->GetMetricsUpdated()) {
+      mAsyncPanZoomController->ResetMetricsUpdated();
       ScheduleComposition();
     }
   }
