@@ -513,14 +513,17 @@ void AsyncPanZoomController::ScaleWithFocus(float aScale, const nsIntPoint& aFoc
   SetFrameMetrics(metrics);
 }
 
-const nsIntRect AsyncPanZoomController::CalculatePendingDisplayPort() {
-  const float SIZE_MULTIPLIER = 2.0f;
-  const float EPSILON = 0.00001;
+// Comment this out when this code is ready.
+//#define USE_LARGER_DISPLAYPORT
 
+const nsIntRect AsyncPanZoomController::CalculatePendingDisplayPort() {
   float scale = mFrameMetrics.mResolution.width;
-  nsIntPoint scrollOffset = mFrameMetrics.mViewportScrollOffset;
   nsIntRect viewport = mFrameMetrics.mViewport;
   viewport.ScaleRoundIn(1 / scale);
+
+#ifdef USE_LARGER_DISPLAYPORT
+  const float SIZE_MULTIPLIER = 2.0f;
+  nsIntPoint scrollOffset = mFrameMetrics.mViewportScrollOffset;
   gfx::Rect contentRect = mFrameMetrics.mCSSContentRect;
 
   // Paint a larger portion of the screen than just what we can see. This makes
@@ -577,6 +580,9 @@ const nsIntRect AsyncPanZoomController::CalculatePendingDisplayPort() {
     displayPort.height = NS_MAX(0.0f, contentRect.YMost() - (displayPort.Y() + scrollOffset.y));
 
   return nsIntRect(NS_lround(displayPort.X()), NS_lround(displayPort.Y()), NS_lround(displayPort.Width()), NS_lround(displayPort.Height()));
+#else
+  return nsIntRect(0, 0, NS_lround(viewport.Width()), NS_lround(viewport.Height()));
+#endif
 }
 
 void AsyncPanZoomController::SetDPI(int aDPI) {
