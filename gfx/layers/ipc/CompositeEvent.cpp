@@ -13,7 +13,8 @@ namespace layers {
 
 ViewportEvent::ViewportEvent(const nsAString& aType, const nsAString& aData)
   : mType(aType),
-    mData(aData) {
+    mData(aData)
+{
 
 }
 
@@ -31,7 +32,8 @@ NS_IMETHODIMP ViewportEvent::Run() {
 
 GestureEvent::GestureEvent(const nsAString& aTopic, const nsAString& aData)
   : mTopic(aTopic),
-    mData(aData) {
+    mData(aData)
+{
 
 }
 
