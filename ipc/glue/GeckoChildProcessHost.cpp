@@ -697,7 +697,7 @@ GeckoChildProcessHost::GetQueuedMessages(std::queue<IPC::Message>& queue)
 {
   // If this is called off the IO thread, bad things will happen.
   DCHECK(MessageLoopForIO::current());
-  queue.swap(mQueue);
+  swap(queue, mQueue);
   // We expect the next listener to take over processing of our queue.
 }
 
