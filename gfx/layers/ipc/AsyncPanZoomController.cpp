@@ -352,45 +352,41 @@ nsEventStatus AsyncPanZoomController::OnScaleEnd(const PinchEvent& event) {
   return nsEventStatus_eConsumeNoDefault;
 }
 
-nsEventStatus AsyncPanZoomController::OnLongPress(const TapEvent& event) {
-  // XXX: Should only send this if the zoom settings are actually valid.
+void AsyncPanZoomController::SendGestureEvent(const TapEvent& event, const nsAString& message) {
   ReentrantMonitorAutoEnter monitor(mReentrantMonitor);
   nsIntPoint actualPoint = ConvertViewPointToLayerPoint(event.mPoint);
-  mGeckoContentController->SendGestureEvent(NS_LITERAL_STRING("Gesture:LongPress"), actualPoint);
+  mGeckoContentController->SendGestureEvent(message, actualPoint);
+}
 
+nsEventStatus AsyncPanZoomController::OnLongPress(const TapEvent& event) {
+  SendGestureEvent(NS_LITERAL_STRING("Gesture:LongPress"));
   return nsEventStatus_eConsumeNoDefault;
 }
 
 nsEventStatus AsyncPanZoomController::OnSingleTapUp(const TapEvent& event) {
-  // XXX: Should only send this if the zoom settings are actually valid.
-  ReentrantMonitorAutoEnter monitor(mReentrantMonitor);
-  nsIntPoint actualPoint = ConvertViewPointToLayerPoint(event.mPoint);
-  mGeckoContentController->SendGestureEvent(NS_LITERAL_STRING("Gesture:SingleTap"), actualPoint);
-
-  return nsEventStatus_eConsumeNoDefault;
+  // XXX: Should only send this if zooming is not allowed. We have no way to
+  // check this yet.
+  // Pretend that zooming is always allowed, for now.
+  //SendGestureEvent(NS_LITERAL_STRING("Gesture:SingleTap"));
+  return nsEventStatus_eIgnore;
 }
 
 nsEventStatus AsyncPanZoomController::OnSingleTapConfirmed(const TapEvent& event) {
-  // XXX: Should only send this if the zoom settings are actually valid.
-  ReentrantMonitorAutoEnter monitor(mReentrantMonitor);
-  nsIntPoint actualPoint = ConvertViewPointToLayerPoint(event.mPoint);
-  mGeckoContentController->SendGestureEvent(NS_LITERAL_STRING("Gesture:SingleTap"), actualPoint);
-
+  // XXX: Should only send this if zooming is allowed. We have no way to check
+  // this yet.
+  // Pretend that zooming is always allowed, for now.
+  SendGestureEvent(NS_LITERAL_STRING("Gesture:SingleTap"));
   return nsEventStatus_eConsumeNoDefault;
 }
 
 nsEventStatus AsyncPanZoomController::OnDoubleTap(const TapEvent& event) {
-  // XXX: Should only send this if the zoom settings are actually valid.
-  ReentrantMonitorAutoEnter monitor(mReentrantMonitor);
-  nsIntPoint actualPoint = ConvertViewPointToLayerPoint(event.mPoint);
-  mGeckoContentController->SendGestureEvent(NS_LITERAL_STRING("Gesture:DoubleTap"), actualPoint);
-
+  // XXX: Should only send this if zooming is allowed.
+  SendGestureEvent(NS_LITERAL_STRING("Gesture:DoubleTap"));
   return nsEventStatus_eConsumeNoDefault;
 }
 
 nsEventStatus AsyncPanZoomController::OnCancelTap() {
-  mGeckoContentController->SendGestureEvent(NS_LITERAL_STRING("Gesture:Cancel"), nsIntPoint(0, 0));
-
+  mGeckoContentController->SendGestureEvent(NS_LITERAL_STRING("Gesture:CancelTouch"), nsIntPoint(0, 0));
   return nsEventStatus_eConsumeNoDefault;
 }
 
