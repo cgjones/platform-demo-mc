@@ -103,7 +103,7 @@ public:
   void SetCompositing(bool aCompositing);
 
   // --------------------------------------------------------------------------
-  // These methods can be called anywhere.
+  // These methods can be called from any thread.
   //
 
   /**
@@ -204,12 +204,12 @@ protected:
 
   /**
    * Helper method for touches being cancelled. Treated roughly the same as a
-   * touch ending (onTouchEnd()).
+   * touch ending (OnTouchEnd()).
    */
   nsEventStatus OnTouchCancel(const MultiTouchEvent& event);
 
   /**
-   * Helper method for scales beginning. Distinct from the onTouch* handlers in
+   * Helper method for scales beginning. Distinct from the OnTouch* handlers in
    * that this implies some outside implementation has determined that the user
    * is pinching. On Android, this is the SimpleScaleGestureDetector.
    */
@@ -235,7 +235,7 @@ protected:
 
   /**
    * Helper method for single tap gestures. Gets called before an
-   * onSingleTapConfirmed() call. Sends a notification to browser.js if the
+   * OnSingleTapConfirmed() call. Sends a notification to browser.js if the
    * tap is valid.
    */
   nsEventStatus OnSingleTapUp(const TapEvent& event);
@@ -254,11 +254,12 @@ protected:
   nsEventStatus OnDoubleTap(const TapEvent& event);
 
   /**
-   * Cancels any touch gesture currently going to Gecko. Used primarily when a
-   * user taps the screen over some clickable content but then pans down instead
-   * of letting go.
+   * Helper method to cancel any gesture currently going to Gecko. Used
+   * primarily when a user taps the screen over some clickable content but then
+   * pans down instead of letting go (i.e. to cancel a previous touch so that a
+   * new one can properly take effect.
    */
-  nsEventStatus OnCancelTap();
+  nsEventStatus OnCancelTap(const TapEvent& event);
 
   /**
    * Scrolls the viewport by an X,Y offset.
@@ -320,11 +321,10 @@ protected:
 
   /**
    * Recalculates the displayport. Ideally, this should paint an area bigger
-   * than the actual screen. Note that it takes in a viewport and page
-   * rectangle, and generates a displayport from it. The viewport refers to the
-   * size of the screen, while the displayport is the area actually painted by
-   * Gecko. We paint a larger area than the screen so that when you scroll down,
-   * you don't checkerboard immediately.
+   * than the actual screen. The viewport refers to the size of the screen,
+   * while the displayport is the area actually painted by Gecko. We paint
+   * a larger area than the screen so that when you scroll down, you don't
+   * checkerboard immediately.
    */
   const nsIntRect CalculatePendingDisplayPort();
 

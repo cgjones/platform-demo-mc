@@ -94,7 +94,8 @@ public:
 
   /**
    * Notify this Axis that a touch has ended. Useful for stopping flings when a
-   * user puts their finger down in the middle of one.
+   * user puts their finger down in the middle of one (i.e. to stop a previous
+   * touch including its fling so that a new one can take its place).
    */
   void StopTouch();
 
@@ -131,9 +132,11 @@ public:
 
   /**
    * If there is overscroll, returns the amount. Sign depends on in what
-   * direction it is overflowing. Positive excess means that it is overflowing
-   * in the positive direction, whereas negative excess means that it is
-   * overflowing in the negative direction.
+   * direction it is overscrolling. Positive excess means that it is
+   * overscrolling in the positive direction, whereas negative excess means
+   * that it is overscrolling in the negative direction. If there is overscroll
+   * in both directions, this returns 0; it assumes that you check
+   * GetOverscroll() first.
    */
   PRInt32 GetExcess();
 
@@ -150,7 +153,7 @@ public:
   Overscroll DisplacementWillOverscroll(PRInt32 displacement);
 
   /**
-   * If a displacement will overflow the axis, this returns the amount and in
+   * If a displacement will overscroll the axis, this returns the amount and in
    * what direction. Similar to getExcess() but takes a displacement to apply.
    */
   PRInt32 DisplacementWillOverscrollAmount(PRInt32 displacement);
@@ -163,7 +166,7 @@ public:
   Overscroll ScaleWillOverscroll(float scale, PRInt32 focus);
 
   /**
-   * If a scale will overflow the axis, this returns the amount and in what
+   * If a scale will overscroll the axis, this returns the amount and in what
    * direction. Similar to getExcess() but takes a displacement to apply.
    */
   PRInt32 ScaleWillOverscrollAmount(float scale, PRInt32 focus);

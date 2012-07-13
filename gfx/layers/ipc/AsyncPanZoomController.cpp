@@ -155,7 +155,6 @@ nsEventStatus AsyncPanZoomController::OnTouchMove(const MultiTouchEvent& event) 
       mLastRepaint = event.mTime;
       mX.StartTouch(xPos);
       mY.StartTouch(yPos);
-      OnCancelTap();
       mState = PANNING;
       return nsEventStatus_eConsumeNoDefault;
 
@@ -183,8 +182,6 @@ nsEventStatus AsyncPanZoomController::OnTouchMove(const MultiTouchEvent& event) 
 }
 
 nsEventStatus AsyncPanZoomController::OnTouchEnd(const MultiTouchEvent& event) {
-  OnCancelTap();
-
   switch (mState) {
   case FLING:
   case BOUNCE:
@@ -232,13 +229,11 @@ nsEventStatus AsyncPanZoomController::OnTouchCancel(const MultiTouchEvent& event
     return nsEventStatus_eIgnore;
   }
 
-  OnCancelTap();
   mState = NOTHING;
   return nsEventStatus_eConsumeNoDefault;
 }
 
 nsEventStatus AsyncPanZoomController::OnScaleBegin(const PinchEvent& event) {
-  OnCancelTap();
   mState = PINCHING;
   mLastZoomFocus = event.mFocusPoint;
 
@@ -359,7 +354,7 @@ void AsyncPanZoomController::SendGestureEvent(const TapEvent& event, const nsASt
 }
 
 nsEventStatus AsyncPanZoomController::OnLongPress(const TapEvent& event) {
-  SendGestureEvent(NS_LITERAL_STRING("Gesture:LongPress"));
+  SendGestureEvent(event, NS_LITERAL_STRING("Gesture:LongPress"));
   return nsEventStatus_eConsumeNoDefault;
 }
 
@@ -367,7 +362,7 @@ nsEventStatus AsyncPanZoomController::OnSingleTapUp(const TapEvent& event) {
   // XXX: Should only send this if zooming is not allowed. We have no way to
   // check this yet.
   // Pretend that zooming is always allowed, for now.
-  //SendGestureEvent(NS_LITERAL_STRING("Gesture:SingleTap"));
+  //SendGestureEvent(event, NS_LITERAL_STRING("Gesture:SingleTap"));
   return nsEventStatus_eIgnore;
 }
 
@@ -375,18 +370,18 @@ nsEventStatus AsyncPanZoomController::OnSingleTapConfirmed(const TapEvent& event
   // XXX: Should only send this if zooming is allowed. We have no way to check
   // this yet.
   // Pretend that zooming is always allowed, for now.
-  SendGestureEvent(NS_LITERAL_STRING("Gesture:SingleTap"));
+  SendGestureEvent(event, NS_LITERAL_STRING("Gesture:SingleTap"));
   return nsEventStatus_eConsumeNoDefault;
 }
 
 nsEventStatus AsyncPanZoomController::OnDoubleTap(const TapEvent& event) {
   // XXX: Should only send this if zooming is allowed.
-  SendGestureEvent(NS_LITERAL_STRING("Gesture:DoubleTap"));
+  SendGestureEvent(event, NS_LITERAL_STRING("Gesture:DoubleTap"));
   return nsEventStatus_eConsumeNoDefault;
 }
 
-nsEventStatus AsyncPanZoomController::OnCancelTap() {
-  mGeckoContentController->SendGestureEvent(NS_LITERAL_STRING("Gesture:CancelTouch"), nsIntPoint(0, 0));
+nsEventStatus AsyncPanZoomController::OnCancelTap(const TapEvent& event) {
+  SendGestureEvent(event, NS_LITERAL_STRING("Gesture:CancelTouch"));
   return nsEventStatus_eConsumeNoDefault;
 }
 
