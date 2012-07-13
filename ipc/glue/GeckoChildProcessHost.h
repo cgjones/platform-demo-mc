@@ -46,6 +46,7 @@ public:
   virtual void OnChannelConnected(int32 peer_pid);
   virtual void OnMessageReceived(const IPC::Message& aMsg);
   virtual void OnChannelError();
+  virtual void GetQueuedMessages(std::queue<IPC::Message>& queue);
 
   void InitializeChannel();
 
@@ -103,6 +104,15 @@ private:
   // Does the actual work for AsyncLaunch, on the IO thread.
   bool PerformAsyncLaunchInternal(std::vector<std::string>& aExtraOpts,
                                   base::ProcessArchitecture arch);
+
+  // There's a short window in between we launch the subprocess and we
+  // hand the channel off that messages can be received by this, while
+  // it's still the channel listener.  If so, the messages would
+  // otherwise be dropped, leading to all sorts of funtimes.  Queue
+  // them here until we hand off the eventual listener.
+  //
+  // FIXME/cjones: this strongly indicates bad design.  Shame on us.
+  std::queue<IPC::Message> mQueue;
 };
 
 } /* namespace ipc */
