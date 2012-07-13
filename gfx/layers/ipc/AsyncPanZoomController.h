@@ -174,12 +174,6 @@ protected:
   static const char* VIEWPORT_CALCULATE_DISPLAY_PORT;
 
   /**
-   * Frames for the double tap zoom animation. This sequence looks smoother than
-   * simply straight-line zooming it.
-   */
-  static float ZOOM_ANIMATION_FRAMES[];
-
-  /**
    * Epsilon helper for float precision.
    */
   static float EPSILON;

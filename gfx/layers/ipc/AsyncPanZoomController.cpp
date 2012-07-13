@@ -19,7 +19,11 @@
 namespace mozilla {
 namespace layers {
 
-float AsyncPanZoomController::ZOOM_ANIMATION_FRAMES[] = {
+/**
+ * Frames for the double tap zoom animation. This sequence looks smoother than
+ * simply straight-line zooming it.
+ */
+float ZOOM_ANIMATION_FRAMES[] = {
   0.00000f,   /* 0 */
   0.10211f,   /* 1 */
   0.19864f,   /* 2 */
