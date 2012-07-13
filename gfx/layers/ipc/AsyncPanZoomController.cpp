@@ -52,11 +52,7 @@ AsyncPanZoomController::AsyncPanZoomController(GeckoContentController* aGeckoCon
      mDPI(72),
      mGeckoContentController(aGeckoContentController)
 {
-#if defined(MOZ_WIDGET_ANDROID)
-  mDPI = AndroidBridge::Bridge()->GetDPI();
-#endif
-
-  mPanThreshold = 1.0f/16.0f * GetDPI();
+  SetDPI(mDPI);
 }
 
 AsyncPanZoomController::~AsyncPanZoomController() {
@@ -574,8 +570,9 @@ const nsIntRect AsyncPanZoomController::CalculateDisplayPort() {
   return nsIntRect(NS_lround(displayPort.X()), NS_lround(displayPort.Y()), NS_lround(displayPort.Width()), NS_lround(displayPort.Height()));
 }
 
-int AsyncPanZoomController::GetDPI() {
-  return mDPI;
+void AsyncPanZoomController::SetDPI(int aDPI) {
+  mDPI = aDPI;
+  mPanThreshold = 1.0f/16.0f * mDPI;
 }
 
 const nsIntPoint AsyncPanZoomController::ConvertViewPointToLayerPoint(const nsIntPoint& viewPoint) {

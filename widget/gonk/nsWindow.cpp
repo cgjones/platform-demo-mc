@@ -578,6 +578,7 @@ nsWindow::GetLayerManager(PLayersChild* aShadowManager,
             new AsyncPanZoomController(new CrossProcessContentController());
         mGestureEventListener = new GestureEventListener(asyncPanZoomController.get());
         mGestureEventListener->GetAsyncPanZoomController()->UpdateViewport(mBounds.width, mBounds.height);
+        mGestureEventListener->GetAsyncPanZoomController()->SetDPI(NS_lround(GetDPI()));
         asyncPanZoomController.forget();
 
         if (mCompositorParent) {

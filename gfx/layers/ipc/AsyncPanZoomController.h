@@ -145,6 +145,15 @@ public:
    */
   const nsIntPoint ConvertViewPointToLayerPoint(const nsIntPoint& viewPoint);
 
+  /**
+   * Sets the DPI of the device for use within panning and zooming logic.
+   *
+   * *** You must hold the monitor while calling this! If you call this
+   * immediately after initializing the class, it's safe to do so without
+   * holding the monitor.
+   */
+  void SetDPI(int aDPI);
+
 protected:
   /**
    * Message name for a viewport update, sent from browser.js. Sent when the
@@ -342,11 +351,6 @@ protected:
    * any scrolling.
    */
   const nsIntRect CalculateDisplayPort();
-
-  /**
-   * Returns the DPI of the screen. Highly platform-specific.
-   */
-  int GetDPI();
 
   /**
    * Utility function to send an updated viewport. Calls into
