@@ -504,7 +504,7 @@ void AsyncPanZoomController::ScaleWithFocus(float aScale, const nsIntPoint& aFoc
   SetFrameMetrics(metrics);
 }
 
-const nsIntRect AsyncPanZoomController::CalculateDisplayPort() {
+const nsIntRect AsyncPanZoomController::CalculatePendingDisplayPort() {
   const float SIZE_MULTIPLIER = 2.0f;
   const float EPSILON = 0.00001;
 
@@ -598,7 +598,7 @@ void AsyncPanZoomController::ForceRepaint() {
 }
 
 void AsyncPanZoomController::SendViewportChange() {
-  mFrameMetrics.mDisplayPort = CalculateDisplayPort();
+  mFrameMetrics.mDisplayPort = CalculatePendingDisplayPort();
   mGeckoContentController->SendViewportChange(mFrameMetrics);
 }
 

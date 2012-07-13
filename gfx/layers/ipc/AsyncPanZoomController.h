@@ -347,10 +347,9 @@ protected:
    * rectangle, and generates a displayport from it. The viewport refers to the
    * size of the screen, while the displayport is the area actually painted by
    * Gecko. We paint a larger area than the screen so that when you scroll down,
-   * you don't checkerboard immediately, and the compositor has time to react to
-   * any scrolling.
+   * you don't checkerboard immediately.
    */
-  const nsIntRect CalculateDisplayPort();
+  const nsIntRect CalculatePendingDisplayPort();
 
   /**
    * Utility function to send an updated viewport. Calls into
