@@ -681,9 +681,8 @@ CompositorParent::TransformShadowTree()
 
     // If there has been a layers update in the form of a pan or zoom, then
     // signal it during synchronization.
-    if (mAsyncPanZoomController->GetLayersUpdated()) {
-      mLayersUpdated = true;
-      mAsyncPanZoomController->ResetLayersUpdated();
+    if (mAsyncPanZoomController->GetMetricsUpdated()) {
+      mAsyncPanZoomController->ResetMetricsUpdated();
       ScheduleComposition();
     }
   }

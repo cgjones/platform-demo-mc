@@ -107,15 +107,16 @@ public:
   //
 
   /**
-   * Check whether or not the layers have been updated.
+   * Check whether or not the metrics have been updated since a reset has last
+   * been done.
    */
-  bool GetLayersUpdated();
+  bool GetMetricsUpdated();
 
   /**
-   * Resets the layers update status to false. This should be used once a layers
-   * update has been handled.
+   * Resets the metrics update status to false. This should be used once a
+   * metrics update has been handled.
    */
-  void ResetLayersUpdated();
+  void ResetMetricsUpdated();
 
   /**
    * Gets the reentrant monitor for thread safety.
@@ -367,7 +368,7 @@ private:
   PRInt32 mLastRepaint;
   nsIntPoint mLastZoomFocus;
   FrameMetrics mFrameMetrics;
-  bool mLayersUpdated;
+  bool mMetricsUpdated;
   bool mIsCompositing;
   mutable ReentrantMonitor mReentrantMonitor;
   int mDPI;

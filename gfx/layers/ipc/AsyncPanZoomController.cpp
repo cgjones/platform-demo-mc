@@ -50,7 +50,7 @@ AsyncPanZoomController::AsyncPanZoomController(GeckoContentController* aGeckoCon
   :  mState(NOTHING),
      mX(this),
      mY(this),
-     mLayersUpdated(false),
+     mMetricsUpdated(false),
      mIsCompositing(false),
      mReentrantMonitor("asyncpanzoomcontroller"),
      mDPI(72),
@@ -591,16 +591,16 @@ const nsIntPoint AsyncPanZoomController::ConvertViewPointToLayerPoint(const nsIn
   return nsIntPoint(offset.x + viewPoint.x / scale, offset.y + viewPoint.y / scale);
 }
 
-bool AsyncPanZoomController::GetLayersUpdated() {
-  return mLayersUpdated;
+bool AsyncPanZoomController::GetMetricsUpdated() {
+  return mMetricsUpdated;
 }
 
-void AsyncPanZoomController::ResetLayersUpdated() {
-  mLayersUpdated = false;
+void AsyncPanZoomController::ResetMetricsUpdated() {
+  mMetricsUpdated = false;
 }
 
 void AsyncPanZoomController::ForceRepaint() {
-  mLayersUpdated = true;
+  mMetricsUpdated = true;
   if (mCompositorParent) {
     mCompositorParent->ScheduleRenderOnCompositorThread();
   }
