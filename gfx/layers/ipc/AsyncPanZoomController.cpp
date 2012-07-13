@@ -96,11 +96,18 @@ nsEventStatus AsyncPanZoomController::OnTouchStart(const MultiTouchEvent& event)
   PRInt32 xPos = point.x, yPos = point.y;
 
   switch (mState) {
-    case ANIMATED_ZOOM:
-      // force redraw
+    case ANIMATED_ZOOM: {
+      // We just interrupted a double-tap animation, so force a redraw in case
+      // this touchstart is just a tap that doesn't end up triggering a redraw.
+      ReentrantMonitorAutoEnter monitor(mReentrantMonitor);
+      ForceRepaint();
+      SendViewportChange();
+    }
+      // Fall through.
     case FLING:
     case BOUNCE:
       CancelAnimation();
+      // Fall through.
     case NOTHING:
     case WAITING_LISTENERS:
       mX.StartTouch(xPos);
@@ -113,6 +120,10 @@ nsEventStatus AsyncPanZoomController::OnTouchStart(const MultiTouchEvent& event)
     case PANNING_HOLD:
     case PANNING_HOLD_LOCKED:
     case PINCHING:
+      NS_WARNING("Received impossible touch in OnTouchStart");
+      break;
+    default:
+      NS_WARNING("Unhandled case in OnTouchStart");
       break;
   }
 
@@ -125,29 +136,47 @@ nsEventStatus AsyncPanZoomController::OnTouchMove(const MultiTouchEvent& event) 
   PRInt32 xPos = point.x, yPos = point.y;
 
   switch (mState) {
-    case ANIMATED_ZOOM:
     case FLING:
     case BOUNCE:
-    case NOTHING:
     case WAITING_LISTENERS:
+      // Should never happen.
+      NS_WARNING("Received impossible touch in OnTouchMove");
+      // Fall through.
+    case ANIMATED_ZOOM:
+    case NOTHING:
+      // May happen if the user double-taps and drags without lifting after the
+      // second tap. Ignore the move if this happens.
+      return nsEventStatus_eIgnore;
+
     case TOUCHING:
       if (PanDistance(event) < mPanThreshold) {
-        return nsEventStatus_eConsumeNoDefault;
+        return nsEventStatus_eIgnore;
       }
       mLastRepaint = event.mTime;
       mX.StartTouch(xPos);
       mY.StartTouch(yPos);
       OnCancelTap();
       mState = PANNING;
-      break;
+      return nsEventStatus_eConsumeNoDefault;
+
+    case PANNING_HOLD_LOCKED:
+      mState = PANNING_LOCKED;
+      // Fall through.
+    case PANNING_LOCKED:
+      TrackTouch(event);
+      return nsEventStatus_eConsumeNoDefault;
+
+    case PANNING_HOLD:
+      mState = PANNING;
+      // Fall through.
     case PANNING:
       TrackTouch(event);
-      break;
-    case PANNING_LOCKED:
-    case PANNING_HOLD:
-    case PANNING_HOLD_LOCKED:
+      return nsEventStatus_eConsumeNoDefault;
+
     case PINCHING:
-      break;
+      // The scale gesture listener should have handled this.
+      NS_WARNING("Gesture listener should have handled pinching in OnTouchMove.");
+      return nsEventStatus_eIgnore;
   }
 
   return nsEventStatus_eConsumeNoDefault;
@@ -160,12 +189,19 @@ nsEventStatus AsyncPanZoomController::OnTouchEnd(const MultiTouchEvent& event) {
   case FLING:
   case BOUNCE:
   case WAITING_LISTENERS:
+    // Should never happen.
+    NS_WARNING("Received impossible touch end in OnTouchEnd.");
+    // Fall through.
   case ANIMATED_ZOOM:
   case NOTHING:
-    break;
+    // May happen if the user double-taps and drags without lifting after the
+    // second tap. Ignore if this happens.
+    return nsEventStatus_eIgnore;
+
   case TOUCHING:
     mState = NOTHING;
-    break;
+    return nsEventStatus_eIgnore;
+
   case PANNING:
   case PANNING_LOCKED:
   case PANNING_HOLD:
@@ -176,15 +212,28 @@ nsEventStatus AsyncPanZoomController::OnTouchEnd(const MultiTouchEvent& event) {
       SendViewportChange();
     }
     mState = FLING;
-    break;
+    return nsEventStatus_eConsumeNoDefault;
   case PINCHING:
-    break;
+    mState = NOTHING;
+    // Scale gesture listener should have handled this.
+    NS_WARNING("Gesture listener should have handled pinching in OnTouchEnd.");
+    return nsEventStatus_eIgnore;
   }
 
   return nsEventStatus_eConsumeNoDefault;
 }
 
 nsEventStatus AsyncPanZoomController::OnTouchCancel(const MultiTouchEvent& event) {
+  if (mState == WAITING_LISTENERS) {
+    // We might get a cancel event from the widget while in the
+    // WAITING_LISTENERS state if the touch listeners prevent-default the block
+    // of events. At this point, being in WAITING_LISTENERS is equivalent to
+    // being in NOTHING.
+    return nsEventStatus_eIgnore;
+  }
+
+  OnCancelTap();
+  mState = NOTHING;
   return nsEventStatus_eConsumeNoDefault;
 }
 
