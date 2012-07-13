@@ -81,7 +81,7 @@ nsEventStatus AsyncPanZoomController::HandleInputEvent(const InputEvent& event) 
   case TAP_UP: rv = OnSingleTapUp((const TapEvent&)event); break;
   case TAP_CONFIRMED: rv = OnSingleTapConfirmed((const TapEvent&)event); break;
   case TAP_DOUBLE: rv = OnDoubleTap((const TapEvent&)event); break;
-  case TAP_CANCEL: rv = OnCancelTap(); break;
+  case TAP_CANCEL: rv = OnCancelTap((const TapEvent&)event); break;
   default: break;
   }
 

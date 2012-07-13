@@ -228,6 +228,12 @@ protected:
   nsEventStatus OnScaleEnd(const PinchEvent& event);
 
   /**
+   * Wrapper for the GeckoContentController's SendGestureEvent method to first
+   * take a message name and event, and transform the point to layer coordinates.
+   */
+  void SendGestureEvent(const TapEvent& event, const nsAString& message);
+
+  /**
    * Helper method for long press gestures. Sends a notification to browser.js
    * if the press is valid.
    */
