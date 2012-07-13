@@ -639,7 +639,7 @@ void AsyncPanZoomController::SetCompositing(bool aCompositing) {
   mIsCompositing = aCompositing;
 }
 
-void AsyncPanZoomController::UpdateViewport(int width, int height) {
+void AsyncPanZoomController::UpdateViewportSize(int width, int height) {
   ReentrantMonitorAutoEnter mon(mReentrantMonitor);
   FrameMetrics metrics = GetFrameMetrics();
   metrics.mViewport = nsIntRect(0, 0, width, height);

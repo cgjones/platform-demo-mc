@@ -419,7 +419,7 @@ nsWindow::Resize(PRInt32 aX,
         gWindowToRedraw->Invalidate(sVirtualBounds);
 
     if (mGestureEventListener)
-        mGestureEventListener->GetAsyncPanZoomController()->UpdateViewport(aWidth, aHeight);
+        mGestureEventListener->GetAsyncPanZoomController()->UpdateViewportSize(aWidth, aHeight);
 
     return NS_OK;
 }
@@ -577,7 +577,7 @@ nsWindow::GetLayerManager(PLayersChild* aShadowManager,
         nsRefPtr<AsyncPanZoomController> asyncPanZoomController =
             new AsyncPanZoomController(new CrossProcessContentController());
         mGestureEventListener = new GestureEventListener(asyncPanZoomController.get());
-        mGestureEventListener->GetAsyncPanZoomController()->UpdateViewport(mBounds.width, mBounds.height);
+        mGestureEventListener->GetAsyncPanZoomController()->UpdateViewportSize(mBounds.width, mBounds.height);
         mGestureEventListener->GetAsyncPanZoomController()->SetDPI(NS_lround(GetDPI()));
         asyncPanZoomController.forget();
 

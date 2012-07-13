@@ -54,10 +54,11 @@ public:
   nsEventStatus HandleInputEvent(const InputEvent& event);
 
   /**
-   * Updates the viewport.
+   * Updates the viewport size, i.e. the dimensions of the screen content will
+   * actually be rendered onto in device pixels.
    * The monitor must be held while calling this.
    */
-  void UpdateViewport(int width, int height);
+  void UpdateViewportSize(int width, int height);
 
   // --------------------------------------------------------------------------
   // These methods must only be called on the compositor thread.
