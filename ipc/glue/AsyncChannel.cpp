@@ -671,10 +671,6 @@ AsyncChannel::ProcessLink::OnChannelOpened()
         mChan->mChannelState = ChannelOpening;
     }
     /*assert*/mTransport->Connect();
-
-    if (/* already have pid */1) {
-        OnChannelConnected(27);
-    }
 }
 
 void
