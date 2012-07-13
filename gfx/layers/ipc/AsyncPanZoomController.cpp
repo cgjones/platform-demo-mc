@@ -70,58 +70,23 @@ nsEventStatus AsyncPanZoomController::HandleInputEvent(const InputEvent& event) 
 
   switch (event.mMessage) {
   case MULTITOUCH_START_POINTER:
-  case MULTITOUCH_START:
-  case MULTITOUCH_MOVE:
-  case MULTITOUCH_END:
-  case MULTITOUCH_CANCEL:
-    rv = HandleTouchEvent((const MultiTouchEvent&)event);
-    break;
-  case PINCH_START:
-  case PINCH_SCALE:
-  case PINCH_END:
-    rv = HandleSimpleScaleGestureEvent((const PinchEvent&)event);
-    break;
-  case TAP_LONG:
-  case TAP_UP:
-  case TAP_CONFIRMED:
-  case TAP_DOUBLE:
-    rv = HandleTapGestureEvent((const TapEvent&)event);
-    break;
+  case MULTITOUCH_START: rv = OnTouchStart((const MultiTouchEvent&)event); break;
+  case MULTITOUCH_MOVE: rv = OnTouchMove((const MultiTouchEvent&)event); break;
+  case MULTITOUCH_END: rv = OnTouchEnd((const MultiTouchEvent&)event); break;
+  case MULTITOUCH_CANCEL: rv = OnTouchCancel((const MultiTouchEvent&)event); break;
+  case PINCH_START: rv = OnScaleBegin((const PinchEvent&)event); break;
+  case PINCH_SCALE: rv = OnScale((const PinchEvent&)event); break;
+  case PINCH_END: rv = OnScaleEnd((const PinchEvent&)event); break;
+  case TAP_LONG: rv = OnLongPress((const TapEvent&)event); break;
+  case TAP_UP: rv = OnSingleTapUp((const TapEvent&)event); break;
+  case TAP_CONFIRMED: rv = OnSingleTapConfirmed((const TapEvent&)event); break;
+  case TAP_DOUBLE: rv = OnDoubleTap((const TapEvent&)event); break;
+  case TAP_CANCEL: rv = OnCancelTap(); break;
+  default: break;
   }
 
   mLastEventTime = event.mTime;
   return rv;
-}
-
-nsEventStatus AsyncPanZoomController::HandleTouchEvent(const MultiTouchEvent& event) {
-  switch (event.mMessage) {
-  case MULTITOUCH_START_POINTER:
-  case MULTITOUCH_START: return OnTouchStart(event);
-  case MULTITOUCH_MOVE: return OnTouchMove(event);
-  case MULTITOUCH_END: return OnTouchEnd(event);
-  case MULTITOUCH_CANCEL: return OnTouchCancel(event);
-  }
-  return nsEventStatus_eIgnore;
-}
-
-nsEventStatus AsyncPanZoomController::HandleSimpleScaleGestureEvent(const PinchEvent& event) {
-  switch (event.mMessage) {
-  case PINCH_START: return OnScaleBegin(event);
-  case PINCH_SCALE: return OnScale(event);
-  case PINCH_END: return OnScaleEnd(event);
-  }
-  return nsEventStatus_eIgnore;
-}
-
-nsEventStatus AsyncPanZoomController::HandleTapGestureEvent(const TapEvent& event) {
-  switch (event.mMessage) {
-  case TAP_LONG: return OnLongPress(event);
-  case TAP_UP: return OnSingleTapUp(event);
-  case TAP_CONFIRMED: return OnSingleTapConfirmed(event);
-  case TAP_DOUBLE: return OnDoubleTap(event);
-  case TAP_CANCEL: return OnCancelTap();
-  }
-  return nsEventStatus_eIgnore;
 }
 
 nsEventStatus AsyncPanZoomController::OnTouchStart(const MultiTouchEvent& event) {

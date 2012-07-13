@@ -185,24 +185,6 @@ protected:
   static PRInt32 REPAINT_INTERVAL;
 
   /**
-   * General handler for touch events.
-   * Calls the onTouch* handlers based on the type of input.
-   */
-  nsEventStatus HandleTouchEvent(const MultiTouchEvent& event);
-
-  /**
-   * General handler for pinch events.
-   * Calls the onScale* handlers based on the type of input.
-   */
-  nsEventStatus HandleSimpleScaleGestureEvent(const PinchEvent& event);
-
-  /**
-   * General handler for tap events.
-   * Calls the on*Tap/on*Press handlers based on the type of input.
-   */
-  nsEventStatus HandleTapGestureEvent(const TapEvent& event);
-
-  /**
    * Helper method for touches beginning. Sets everything up for panning and any
    * multitouch gestures.
    */
