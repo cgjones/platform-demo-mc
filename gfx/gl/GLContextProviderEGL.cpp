@@ -336,8 +336,28 @@ public:
         }
 #endif
 
-        if (ok)
+        if (ok) {
             InitFramebuffers();
+
+            uint32_t usage = GraphicBuffer::USAGE_HW_TEXTURE |
+                             GraphicBuffer::USAGE_SW_READ_OFTEN;
+            GraphicBuffer *emptybuffer = new GraphicBuffer(1, 1, PIXEL_FORMAT_RGB_565, usage);
+            if (emptybuffer->initCheck() == OK) {
+                const int eglImageAttributes[] = { EGL_IMAGE_PRESERVED_KHR, LOCAL_EGL_FALSE,
+                                                 LOCAL_EGL_NONE, LOCAL_EGL_NONE };
+
+                mEmptyEGLImage = sEGLLibrary.fCreateImage(EGL_DISPLAY(),
+                                                      EGL_NO_CONTEXT,
+                                                      EGL_NATIVE_BUFFER_ANDROID,
+                                                      (EGLClientBuffer) emptybuffer->getNativeBuffer(),
+                                                      eglImageAttributes);
+
+                if (!mEmptyEGLImage) {
+                  LOG("Could not create EGL images: ERROR (0x%04x)", sEGLLibrary.fGetError());
+                  return false;
+                }
+            }
+        }
 
         return ok;
     }
@@ -612,6 +632,8 @@ public:
     virtual bool HasLockSurface() {
         return sEGLLibrary.HasKHRLockSurface();
     }
+
+    EGLImage mEmptyEGLImage;
 
 protected:
     friend class GLContextProviderEGL;
@@ -1453,7 +1475,7 @@ public:
     void UnbindGralloc() {
       mGLContext->fActiveTexture(LOCAL_GL_TEXTURE0);
       mGLContext->fBindTexture(LOCAL_GL_TEXTURE_2D, mTexture);
-      sEGLLibrary.fImageTargetTexture2DOES(LOCAL_GL_TEXTURE_2D, 0);
+      sEGLLibrary.fImageTargetTexture2DOES(LOCAL_GL_TEXTURE_2D, ((GLContextEGL *) mGLContext)->mEmptyEGLImage);
       if (sEGLLibrary.fGetError() != LOCAL_EGL_SUCCESS) {
           LOG("Could not unset image target texture. ERROR (0x%04x)", sEGLLibrary.fGetError());
           return;
